@@ -1,0 +1,3 @@
+[submodule "easy_english_web"]
+	path = easy_english_web
+	url = https://github.com/m18n/easy_english_web.git

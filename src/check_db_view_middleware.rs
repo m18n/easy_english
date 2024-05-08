@@ -65,7 +65,7 @@ impl<S, B> Service<ServiceRequest> for CheckDbViewMiddleware<S>
             if mysql_db.mysql.is_none() {
                 drop(mysql_db);
                 let response = HttpResponse::Found()
-                    .insert_header((http::header::LOCATION, "/settings/dberror"))
+                    .insert_header((http::header::LOCATION, "/settings/error"))
                     .finish().map_into_right_body();
                 Ok(ServiceResponse::new(req.into_parts().0, response))
             } else {

@@ -38,7 +38,7 @@ impl ResponseError for MyError {
                 });
 
                 HttpResponse::Found()
-                    .insert_header((http::header::LOCATION, "/settings/dberror"))
+                    .insert_header((http::header::LOCATION, "/settings/error"))
                     .finish()
             }
 
