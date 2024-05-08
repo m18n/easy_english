@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use actix_web::{HttpResponse, ResponseError};
 use http::StatusCode;
+use ramhorns::Content;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, MySqlPool, query};
 use sqlx::FromRow;
@@ -60,7 +61,11 @@ pub struct UserDictionary{
     id:i32,
     language_name:String
 }
-
+#[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone,Content)]
+pub struct LanguageSupported{
+    pub id:i32,
+    pub language_name:String
+}
 #[derive(Debug, Serialize, Deserialize, FromRow,Clone,PartialEq)]
 pub struct MysqlInfo{
     pub ip:String,
@@ -146,5 +151,18 @@ impl MysqlDB{
                 MyError::SiteError(str_error)
             })?;
        Ok(user_dictionary)
+    }
+    pub async fn getLanguages(mysql_db_m:Arc<Mutex<MysqlDB>>)->Result<Vec<LanguageSupported>, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let languages_supported:Vec<LanguageSupported>= sqlx::query_as("SELECT * FROM languages_supported")
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        Ok(languages_supported)
     }
 }

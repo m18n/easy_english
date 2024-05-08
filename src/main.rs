@@ -8,6 +8,7 @@ mod check_db_api_middleware;
 mod jwt;
 mod check_user_middleware;
 mod check_auth_middleware;
+mod render_temps;
 
 use std::sync::Arc;
 use actix_web::{App, HttpServer, web};
