@@ -1,21 +1,24 @@
+use std::sync::Arc;
 use actix_web::{HttpResponse, ResponseError};
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use sqlx::{Error, MySqlPool, query};
 use sqlx::FromRow;
 use thiserror::Error;
+use tokio::sync::Mutex;
 use crate::base::get_nowtime_str;
+use crate::controllers::object_of_controller::AuthInfo;
 use crate::globals::LOGS_DB_ERROR;
 #[derive(Error, Debug)]
 pub enum MyError {
     #[error("")]
-    DatabaseError(String), // Автоматично конвертує sqlx::Error у MyError
+    SiteError(String), // Автоматично конвертує sqlx::Error у MyError
     // Додайте інші варіанти помилок тут
 }
 impl MyError{
     pub async fn pushlog(&self){
         match self {
-            MyError::DatabaseError(mess_err) => {
+            MyError::SiteError(mess_err) => {
                 let mess_err = mess_err.clone();
                 let mut log = LOGS_DB_ERROR.lock().await;
                 log.push_str(&mess_err);
@@ -30,7 +33,7 @@ impl ResponseError for MyError {
     }
     fn error_response(&self) -> HttpResponse {
         match self {
-            MyError::DatabaseError(mess_err) => {
+            MyError::SiteError(mess_err) => {
                 let mess_err = mess_err.clone();
                 tokio::spawn(async move{
                     let mut log = LOGS_DB_ERROR.lock().await;
@@ -46,6 +49,18 @@ impl ResponseError for MyError {
         }
     }
 }
+#[derive(Debug, Serialize, Deserialize,sqlx::FromRow)]
+pub struct User{
+    id:i32,
+    user_name:String,
+    password:String,
+}
+#[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone)]
+pub struct UserDictionary{
+    id:i32,
+    language_name:String
+}
+
 #[derive(Debug, Serialize, Deserialize, FromRow,Clone,PartialEq)]
 pub struct MysqlInfo{
     pub ip:String,
@@ -80,9 +95,56 @@ impl MysqlDB{
             Err(e)=>{
                 self.disconnect().await;
                 let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
-                return Err(MyError::DatabaseError(str_error))
+                return Err(MyError::SiteError(str_error))
             },
         };
         Ok(!self.mysql.is_none())
+    }
+    pub async fn executeSql(mysql_db_m:Arc<Mutex<MysqlDB>>,query:String,error_mess:String)->Result<bool, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let res= sqlx::query(query.as_str())
+            .execute(&mysqlpool)
+            .await.map_err(|e|{
+            let str_error = format!("MYSQL|| {} error: {} \n", get_nowtime_str(),error_mess);
+            MyError::SiteError(str_error)
+        })?;
+        Ok(true)
+    }
+    pub async fn checkAuth(mysql_db_m:Arc<Mutex<MysqlDB>>,auth_info:AuthInfo)->Result<i32, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let users:Vec<User>= sqlx::query_as("SELECT * FROM users WHERE user_name=?;")
+            .bind(auth_info.user_name)
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        if !users.is_empty() && users[0].password==auth_info.password{
+            Ok(users[0].id)
+        }else{
+            Ok(-1)
+        }
+    }
+    pub async fn getUserDictionaries(mysql_db_m:Arc<Mutex<MysqlDB>>,user_id:i32)->Result<Vec<UserDictionary>, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let user_dictionary:Vec<UserDictionary>= sqlx::query_as("SELECT ud.id, ls.language_name
+        FROM user_dictionaries AS ud
+        JOIN languages_supported AS ls ON ud.language_id = ls.id
+        WHERE ud.user_id = ?")
+            .bind(user_id)
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+       Ok(user_dictionary)
     }
 }
