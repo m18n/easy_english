@@ -9,3 +9,11 @@ pub struct AuthInfo{
 pub struct RequestResult{
     pub status:bool,
 }
+#[derive(Serialize, Deserialize)]
+pub struct ErrorDb{
+    pub error:bool
+}
+#[derive(Deserialize,Serialize,Clone)]
+pub struct DictionariesId{
+    pub dictionaries_id:Vec<i32>
+}

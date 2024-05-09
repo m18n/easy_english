@@ -11,6 +11,7 @@ use futures_util::FutureExt;
 use serde::{Deserialize, Serialize};
 use sqlx::error::DatabaseError;
 use sqlx::FromRow;
+use crate::controllers::object_of_controller::ErrorDb;
 use crate::models::MyError;
 use crate::StateDb;
 
@@ -45,10 +46,7 @@ pub struct CheckDbApiMiddleware<S> {
     service: Rc<S>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct ErrorDb{
-    error:bool
-}
+
 impl<S, B> Service<ServiceRequest> for CheckDbApiMiddleware<S>
     where
         S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>+ 'static,

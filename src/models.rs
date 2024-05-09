@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use actix_web::{HttpResponse, ResponseError};
+use futures_util::future::join_all;
 use http::StatusCode;
 use ramhorns::Content;
 use serde::{Deserialize, Serialize};
@@ -164,5 +165,20 @@ impl MysqlDB{
                 MyError::SiteError(str_error)
             })?;
         Ok(languages_supported)
+    }
+    pub async fn setDictionaries(mysql_db_m:Arc<Mutex<MysqlDB>>,dictionaries_id:Vec<i32>,user_id:i32)->Result<bool, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let mut tasks_array =Vec::new();
+        for element in dictionaries_id{
+            let query = format!("INSERT INTO user_dictionaries (user_id,language_id) VALUES ({},{});",user_id,element);
+            tasks_array.push(Self::executeSql(mysql_db_m.clone(),query.to_string(),"set dictionaries".to_string()));
+        }
+        let results=join_all(tasks_array).await;
+        for res in results{
+            res?;
+        }
+        Ok(true)
     }
 }

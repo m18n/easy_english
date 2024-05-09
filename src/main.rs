@@ -9,17 +9,21 @@ mod jwt;
 mod check_user_middleware;
 mod check_auth_middleware;
 mod render_temps;
+mod check_auth_api_middleware;
+mod check_user_api_middleware;
 
 use std::sync::Arc;
 use actix_web::{App, HttpServer, web};
 use actix_files as fs;
 use no_cache_middleware::NoCache;
 use tokio::sync::Mutex;
+use crate::check_auth_api_middleware::CheckAuthApi;
 use crate::check_auth_middleware::CheckAuth;
 use crate::check_user_middleware::CheckUser;
 use crate::check_db_api_middleware::CheckDbApi;
 use crate::check_db_view_middleware::CheckDbView;
-use crate::controllers::{api_controller, main_controller, settings_controller, view_controller};
+use crate::check_user_api_middleware::CheckUserApi;
+use crate::controllers::{api_auth_controller, api_controller, api_user_controller, main_controller, settings_controller, view_controller};
 use crate::models::{MysqlDB, MysqlInfo};
 struct StateDb{
     mysql_db:Arc<Mutex<MysqlDB>>,
@@ -85,6 +89,17 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/api")
                     .wrap(CheckDbApi)
                     .service(api_controller::m_auth)
+                    .service(
+                        web::scope("/userspace")
+                            .wrap(CheckUserApi)
+                            .service(api_user_controller::m_test)
+                    )
+                    .service(
+                        web::scope("/userstart")
+                            .wrap(CheckAuthApi)
+                            .service(api_auth_controller::m_test)
+                            .service(api_auth_controller::m_set_dictionaries)
+                    )
             )
     })
         .bind(("0.0.0.0", 3000))?
