@@ -59,8 +59,8 @@ pub struct User{
 }
 #[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone)]
 pub struct UserDictionary{
-    id:i32,
-    language_name:String
+    pub id:i32,
+    pub language_name:String
 }
 #[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone,Content)]
 pub struct LanguageSupported{

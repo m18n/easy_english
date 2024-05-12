@@ -2,6 +2,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use jsonwebtoken::{decode, DecodingKey, encode, EncodingKey, Header, Validation};
 use crate::models::{MysqlInfo, UserDictionary};
+use crate::render_temps::CurrentLang;
 
 #[derive(Debug, Serialize, Deserialize,Clone)]
 pub struct Claims {
@@ -9,14 +10,16 @@ pub struct Claims {
     pub user_name: String,
     pub user_dictionaries:Vec<UserDictionary>,
     pub admin: bool,
+    pub current_lang_index:usize,
     pub exp: usize,
 
 }
-pub fn create_token(user_id_:i32,user_name_:String,admin_:bool,user_dictionaries_:Vec<UserDictionary>)->String{
+pub fn create_token(user_id_:i32,user_name_:String,admin_:bool,user_dictionaries_:Vec<UserDictionary>,current_lang_index_:usize)->String{
     let my_claims = Claims {
         user_id:user_id_,
         user_name:user_name_,
         admin:admin_,
+        current_lang_index:current_lang_index_,
         exp:10000000000,
         user_dictionaries:user_dictionaries_
     };

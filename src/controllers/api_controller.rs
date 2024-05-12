@@ -13,7 +13,7 @@ pub async fn m_auth(auth_info:web::Json<AuthInfo>,state: web::Data<StateDb>)->Re
     let res=MysqlDB::checkAuth(state.mysql_db.clone(),auth_obj.clone()).await?;
     if res!=-1 {
         let users_dictionaries=MysqlDB::getUserDictionaries(state.mysql_db.clone(),res).await?;
-        let cookie = Cookie::build("refresh_token", create_token(res,auth_obj.user_name.clone(),false,users_dictionaries))
+        let cookie = Cookie::build("refresh_token", create_token(res,auth_obj.user_name.clone(),false,users_dictionaries,0))
             .path("/")
             .http_only(true)
             .finish();

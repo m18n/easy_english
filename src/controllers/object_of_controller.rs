@@ -5,7 +5,7 @@ pub struct AuthInfo{
     pub user_name:String,
     pub password:String
 }
-#[derive(Deserialize,Serialize)]
+#[derive(Deserialize,Serialize,Debug)]
 pub struct RequestResult{
     pub status:bool,
 }

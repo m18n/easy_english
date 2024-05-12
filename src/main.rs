@@ -11,10 +11,13 @@ mod check_auth_middleware;
 mod render_temps;
 mod check_auth_api_middleware;
 mod check_user_api_middleware;
+mod gpt_module;
+mod translate_module;
 
 use std::sync::Arc;
 use actix_web::{App, HttpServer, web};
 use actix_files as fs;
+use deepl::DeepLApi;
 use no_cache_middleware::NoCache;
 use tokio::sync::Mutex;
 use crate::check_auth_api_middleware::CheckAuthApi;
@@ -24,11 +27,16 @@ use crate::check_db_api_middleware::CheckDbApi;
 use crate::check_db_view_middleware::CheckDbView;
 use crate::check_user_api_middleware::CheckUserApi;
 use crate::controllers::{api_auth_controller, api_controller, api_user_controller, main_controller, settings_controller, view_controller};
-use crate::models::{MysqlDB, MysqlInfo};
+use crate::controllers::object_of_controller::RequestResult;
+use crate::gpt_module::GptModule;
+use crate::models::{MyError, MysqlDB, MysqlInfo};
+use crate::translate_module::DeeplModule;
+
 struct StateDb{
     mysql_db:Arc<Mutex<MysqlDB>>,
 
 }
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // let logger=LogManager::new().await;
@@ -43,6 +51,7 @@ async fn main() -> std::io::Result<()> {
     //println!("{}",logger.get_key_json(vec!["error".to_string(),"sqlite".to_string()]).await.to_string());
     let mysql_info=MysqlInfo{ip:"213.226.95.124".to_string(),login:"root_all".to_string(),password:"1".to_string(),database:"easy_english".to_string(),port:"6060".to_string()};
     let mut mysql_db=MysqlDB::new();
+
     let res_conn=mysql_db.connect(mysql_info).await;
     match res_conn {
         Ok(_) => {}
@@ -56,6 +65,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&state))
+            .default_service(web::route().to(settings_controller::m_none))
             .wrap(NoCache)
 
             .service(fs::Files::new("/public", "./easy_english_web").show_files_listing())
@@ -77,7 +87,8 @@ async fn main() -> std::io::Result<()> {
                     .service(
                         web::scope("/userspace")
                             .wrap(CheckUser)
-                            .service(view_controller::m_main)
+
+                            .service(view_controller::m_learn_main)
                     )
 
             )

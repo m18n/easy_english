@@ -16,7 +16,7 @@ pub async fn m_set_dictionaries(req:HttpRequest,dictionaries_id:web::Json<Dictio
     if let Some(claims) = req.extensions().get::<Claims>(){
         MysqlDB::setDictionaries(state.mysql_db.clone(),dictionaries_id.into_inner().dictionaries_id,claims.user_id).await?;
         let user_dictionaries=MysqlDB::getUserDictionaries(state.mysql_db.clone(),claims.user_id).await?;
-        let cookie = Cookie::build("refresh_token", create_token(claims.user_id,claims.user_name.clone(),claims.admin,user_dictionaries))
+        let cookie = Cookie::build("refresh_token", create_token(claims.user_id,claims.user_name.clone(),claims.admin,user_dictionaries,0))
             .path("/")
             .http_only(true)
             .finish();
