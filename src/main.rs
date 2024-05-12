@@ -69,12 +69,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(NoCache)
 
             .service(fs::Files::new("/public", "./easy_english_web").show_files_listing())
-            .service(
-                web::scope("/")
-                    .wrap(CheckDbView)
-                    .service(main_controller::m_global_main)
 
-            )
             .service(
                 web::scope("/view")
                     .wrap(CheckDbView)
@@ -87,8 +82,8 @@ async fn main() -> std::io::Result<()> {
                     .service(
                         web::scope("/userspace")
                             .wrap(CheckUser)
-
                             .service(view_controller::m_learn_main)
+                            .service(view_controller::m_translate_main)
                     )
 
             )

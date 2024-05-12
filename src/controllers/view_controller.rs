@@ -46,3 +46,20 @@ pub async fn m_learn_main(req:HttpRequest,state: web::Data<StateDb>)->Result<Htt
     let tpl = Template::new(contents).unwrap();
     Ok(HttpResponse::Ok().content_type("text/html").body(tpl.render(&template)))
 }
+#[get("/translate/main")]
+pub async fn m_translate_main(req:HttpRequest,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let mut cookie=Claims::new();
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        cookie=claims.clone();
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+    let contents = file_openString("./easy_english_web/translate_main.html").await?;
+    let template=CurrentLang{
+        current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
+        languages:cookie.user_dictionaries.clone(),
+    };
+    let tpl = Template::new(contents).unwrap();
+    Ok(HttpResponse::Ok().content_type("text/html").body(tpl.render(&template)))
+}
