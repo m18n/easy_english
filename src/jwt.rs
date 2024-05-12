@@ -12,7 +12,11 @@ pub struct Claims {
     pub admin: bool,
     pub current_lang_index:usize,
     pub exp: usize,
-
+}
+impl Claims{
+    pub fn new()->Self{
+        Self{user_id:0,user_name:String::new(),user_dictionaries:Vec::new(),admin:false,current_lang_index:0,exp:0}
+    }
 }
 pub fn create_token(user_id_:i32,user_name_:String,admin_:bool,user_dictionaries_:Vec<UserDictionary>,current_lang_index_:usize)->String{
     let my_claims = Claims {

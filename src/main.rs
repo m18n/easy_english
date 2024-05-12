@@ -104,6 +104,7 @@ async fn main() -> std::io::Result<()> {
                         web::scope("/userspace")
                             .wrap(CheckUserApi)
                             .service(api_user_controller::m_test)
+                            .service(api_user_controller::m_set_dictionaries)
                     )
                     .service(
                         web::scope("/userstart")

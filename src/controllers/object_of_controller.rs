@@ -17,3 +17,8 @@ pub struct ErrorDb{
 pub struct DictionariesId{
     pub dictionaries_id:Vec<i32>
 }
+#[derive(Deserialize,Serialize,Clone)]
+pub struct CurrentLanguage{
+    pub current_lang:String
+}
+

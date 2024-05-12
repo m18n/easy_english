@@ -57,7 +57,7 @@ pub struct User{
     user_name:String,
     password:String,
 }
-#[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone)]
+#[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone,Content)]
 pub struct UserDictionary{
     pub id:i32,
     pub language_name:String
