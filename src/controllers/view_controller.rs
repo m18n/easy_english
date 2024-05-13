@@ -7,7 +7,7 @@ use crate::base::{file_openString, get_nowtime_str};
 use crate::controllers::object_of_controller::{ RequestResult};
 use crate::jwt::{Claims, create_token};
 use crate::models::{MyError, MysqlDB};
-use crate::render_temps::{CurrentLang, LanguagesSupportedTemplate};
+use crate::render_temps::{CurrentLang, LanguagesSupportedTemplate, TranslateTemplate};
 use crate::StateDb;
 
 #[get("/login")]
@@ -55,10 +55,13 @@ pub async fn m_translate_main(req:HttpRequest,state: web::Data<StateDb>)->Result
         let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
         return Err(MyError::SiteError(str_error));
     }
+    let langs=MysqlDB::getLanguages(state.mysql_db.clone()).await?;
     let contents = file_openString("./easy_english_web/translate_main.html").await?;
-    let template=CurrentLang{
+    let template=TranslateTemplate{
         current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
+        current_lang_id:cookie.user_dictionaries[cookie.current_lang_index].language_id,
         languages:cookie.user_dictionaries.clone(),
+        langueges_supported:langs
     };
     let tpl = Template::new(contents).unwrap();
     Ok(HttpResponse::Ok().content_type("text/html").body(tpl.render(&template)))

@@ -22,3 +22,20 @@ pub struct CurrentLanguage{
     pub current_lang:String
 }
 
+#[derive(Deserialize,Serialize,Clone)]
+pub struct Translate{
+    pub from_lang:String,
+    pub into_lang:String,
+    pub text:String,
+}
+#[derive(Deserialize,Serialize,Clone)]
+pub struct ResultTranslate{
+    pub text:String
+}
+#[derive(Deserialize,Serialize,Clone)]
+pub struct ResultGptTranslate{
+    pub translate:String,
+    pub explanation:String,
+}
+
+

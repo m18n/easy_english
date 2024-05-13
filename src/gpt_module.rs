@@ -11,21 +11,19 @@ pub struct GptModule{
 }
 // Передаємо запитт
 impl GptModule {
-    pub async fn connect(&mut self,token:String){
+    pub async fn connect(token:String)->Arc<Api>{
         let token = Token::new(token);
-        self.api = Some(Api::new(token));
+        Arc::new(Api::new(token))
     }
-    pub fn new()->Self{
-        Self{api:None}
-    }
-    pub async fn send<T>(&mut self, request:String) -> std::result::Result<T,MyError>
+
+    pub async fn send<T>(api:Arc<Api>, request:String) -> std::result::Result<T,MyError>
         where
             T: DeserializeOwned,{
-        if self.api.is_none(){
-            let str_error = format!("GPT|| {} error: DONT CONNECT WITH API\n", get_nowtime_str());
-            return Err(MyError::SiteError(str_error));
-        }
-        let api=self.api.as_mut().unwrap();
+        // if api{
+        //     let str_error = format!("GPT|| {} error: DONT CONNECT WITH API\n", get_nowtime_str());
+        //     return Err(MyError::SiteError(str_error));
+        // }
+
         let request = Request {
             model: Model::Gpt4,
             messages: vec![Message {

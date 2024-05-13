@@ -60,7 +60,8 @@ pub struct User{
 #[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone,Content)]
 pub struct UserDictionary{
     pub id:i32,
-    pub language_name:String
+    pub language_name:String,
+    pub language_id:i32
 }
 #[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone,Content)]
 pub struct LanguageSupported{
@@ -140,7 +141,7 @@ impl MysqlDB{
         let mysql_db=mysql_db_m.lock().await;
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
         drop(mysql_db);
-        let user_dictionary:Vec<UserDictionary>= sqlx::query_as("SELECT ud.id, ls.language_name
+        let user_dictionary:Vec<UserDictionary>= sqlx::query_as("SELECT ud.id, ls.language_name, ls.id AS language_id
         FROM user_dictionaries AS ud
         JOIN languages_supported AS ls ON ud.language_id = ls.id
         WHERE ud.user_id = ?")

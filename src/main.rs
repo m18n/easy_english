@@ -13,10 +13,13 @@ mod check_auth_api_middleware;
 mod check_user_api_middleware;
 mod gpt_module;
 mod translate_module;
+mod build;
 
+use std::env;
 use std::sync::Arc;
 use actix_web::{App, HttpServer, web};
 use actix_files as fs;
+use chat_gpt_rs::api::Api;
 use deepl::DeepLApi;
 use no_cache_middleware::NoCache;
 use tokio::sync::Mutex;
@@ -31,14 +34,16 @@ use crate::controllers::object_of_controller::RequestResult;
 use crate::gpt_module::GptModule;
 use crate::models::{MyError, MysqlDB, MysqlInfo};
 use crate::translate_module::DeeplModule;
-
+use dotenv::dotenv;
 struct StateDb{
     mysql_db:Arc<Mutex<MysqlDB>>,
-
+    deepl_api:DeepLApi,
+    gpt_api:Arc<Api>
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenv().ok();
     // let logger=LogManager::new().await;
     // logger.add_log(vec!["error".to_string(), "sqlite".to_string()], "2023".to_string(), "test1".to_string()).await;
     // logger.add_log(vec!["error".to_string(), "sqlite".to_string()], "2023".to_string(), "test2".to_string()).await;
@@ -51,7 +56,8 @@ async fn main() -> std::io::Result<()> {
     //println!("{}",logger.get_key_json(vec!["error".to_string(),"sqlite".to_string()]).await.to_string());
     let mysql_info=MysqlInfo{ip:"213.226.95.124".to_string(),login:"root_all".to_string(),password:"1".to_string(),database:"easy_english".to_string(),port:"6060".to_string()};
     let mut mysql_db=MysqlDB::new();
-
+    let deepl_api_=DeeplModule::connect(env::var("DEEPL").unwrap()).await;
+    let gpt_api_=GptModule::connect(env::var("GPT").unwrap()).await;
     let res_conn=mysql_db.connect(mysql_info).await;
     match res_conn {
         Ok(_) => {}
@@ -59,6 +65,8 @@ async fn main() -> std::io::Result<()> {
     }
     let state=web::Data::new(StateDb{
         mysql_db:Arc::new(Mutex::new(mysql_db)),
+        deepl_api:deepl_api_.clone(),
+        gpt_api:gpt_api_
     });
     println!("START WEB SERVER");
 
@@ -100,6 +108,8 @@ async fn main() -> std::io::Result<()> {
                             .wrap(CheckUserApi)
                             .service(api_user_controller::m_test)
                             .service(api_user_controller::m_set_dictionaries)
+                            .service(api_user_controller::m_deepl_translate)
+                            .service(api_user_controller::m_gpt_translate)
                     )
                     .service(
                         web::scope("/userstart")
@@ -109,7 +119,7 @@ async fn main() -> std::io::Result<()> {
                     )
             )
     })
-        .bind(("0.0.0.0", 3000))?
+        .bind(("0.0.0.0", 3002))?
         .run()
         .await
 }
