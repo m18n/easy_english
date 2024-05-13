@@ -13,7 +13,6 @@ mod check_auth_api_middleware;
 mod check_user_api_middleware;
 mod gpt_module;
 mod translate_module;
-mod build;
 
 use std::env;
 use std::sync::Arc;

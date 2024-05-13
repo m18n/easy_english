@@ -25,4 +25,5 @@ ramhorns = "0.14.0"
 chat-gpt-rs = "1.4.0"
 deepl = "0.6.3"
 dotenv = "0.15.0"
-walkdir = "2.5.0"
+[build-dependencies]
+walkdir = "2.3"
