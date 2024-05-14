@@ -4,6 +4,7 @@ use futures_util::future::join_all;
 use http::StatusCode;
 use ramhorns::Content;
 use serde::{Deserialize, Serialize};
+use serde::de::Unexpected::Str;
 use sqlx::{Error, MySqlPool, query};
 use sqlx::FromRow;
 use thiserror::Error;
@@ -77,13 +78,18 @@ pub struct MysqlInfo{
     pub port:String
 }
 
+impl MysqlInfo {
+    fn new()->Self{
+        Self{ip:String::new(),login:String::new(),password:String::new(),database:String::new(),port:String::new()}
+    }
+}
 pub struct MysqlDB{
     pub mysql:Option<MySqlPool>,
-
+    pub last_info:MysqlInfo
 }
 impl MysqlDB{
     pub fn new()->MysqlDB{
-        MysqlDB{mysql:None}
+        MysqlDB{mysql:None,last_info:MysqlInfo::new()}
     }
     pub async fn disconnect(&mut self){
         self.mysql=None;
@@ -98,6 +104,7 @@ impl MysqlDB{
                 println!("CONNECTION to mysql db successfully");
                 let mut log = LOGS_DB_ERROR.lock().await;
                 log.clear();
+                self.last_info=mysql_info;
                 Some(pool)},
             Err(e)=>{
                 self.disconnect().await;

@@ -8,3 +8,4 @@ deps/
 azs_local_server_rust.d
 azs_db.db-shm
 azs_db.db-wal
+.env

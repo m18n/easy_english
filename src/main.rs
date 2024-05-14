@@ -34,8 +34,8 @@ use crate::gpt_module::GptModule;
 use crate::models::{MyError, MysqlDB, MysqlInfo};
 use crate::translate_module::DeeplModule;
 use dotenv::dotenv;
-struct StateDb{
-    mysql_db:Arc<Mutex<MysqlDB>>,
+pub struct StateDb{
+    pub mysql_db:Arc<Mutex<MysqlDB>>,
     deepl_api:DeepLApi,
     gpt_api:Arc<Api>
 }
@@ -97,6 +97,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/settings")
                     .service(settings_controller::m_settings_error)
+                    .service(settings_controller::m_restart_server)
             )
             .service(
                 web::scope("/api")

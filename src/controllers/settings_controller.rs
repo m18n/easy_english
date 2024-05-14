@@ -1,10 +1,14 @@
-use actix_web::{get, HttpResponse, Responder};
+use std::env;
+use actix_web::{get, HttpResponse, Responder, web};
 use actix_web::http::header;
 use ramhorns::Template;
 use crate::base::file_openString;
 use crate::globals::LOGS_DB_ERROR;
-use crate::models::MyError;
+use crate::gpt_module::GptModule;
+use crate::models::{MyError, MysqlDB};
 use crate::render_temps::{ErrorTemplate, TranslateTemplate};
+use crate::StateDb;
+use crate::translate_module::DeeplModule;
 
 #[get("/error")]
 pub async fn m_settings_error()->Result<HttpResponse, MyError>{
@@ -21,4 +25,14 @@ pub async fn m_none()-> impl Responder{
     HttpResponse::Found()
         .insert_header((header::LOCATION, "/view/login"))
         .finish()
+}
+#[get("/restart")]
+pub async fn m_restart_server(state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let mut mysqldb=state.mysql_db.lock().await;
+    let mysql_info=mysqldb.last_info.clone();
+    mysqldb.connect(mysql_info).await?;
+    let response = HttpResponse::Found()
+        .insert_header((http::header::LOCATION, "/view/login"))
+        .finish();
+    Ok(response)
 }

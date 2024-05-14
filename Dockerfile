@@ -2,10 +2,9 @@ FROM ubuntu:latest
 MAINTAINER your_name <email_address>
 
 # Оновлюємо стандартні пакети
-RUN apt-get update && apt-get upgrade -y
-# Встановлюємо пакети, необхідні для виконання програм на C++
-#RUN apt-get install -y libboost-all-dev
-
+# Оновлюємо стандартні пакети
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y curl --fix-missing
 # Копіюємо виконуваний файл у контейнер
 COPY ./ /app/
 
