@@ -1,3 +1,4 @@
+use ramhorns::Content;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize,Serialize,Clone)]
@@ -17,16 +18,26 @@ pub struct ErrorDb{
 pub struct DictionariesId{
     pub dictionaries_id:Vec<i32>
 }
-#[derive(Deserialize,Serialize,Clone)]
+#[derive(Deserialize,Serialize,Clone,Content)]
 pub struct CurrentLanguage{
     pub current_lang:String
 }
-
+#[derive(Deserialize,Serialize,Clone,Content)]
+pub struct DeleteTranslate{
+    pub id_record:i32
+}
 #[derive(Deserialize,Serialize,Clone)]
 pub struct Translate{
     pub from_lang:String,
     pub into_lang:String,
     pub text:String,
+}
+#[derive(Deserialize,Serialize,Clone)]
+pub struct TranslateGpt{
+    pub from_lang:String,
+    pub into_lang:String,
+    pub text:String,
+    pub text_explain:String,
 }
 #[derive(Deserialize,Serialize,Clone)]
 pub struct ResultTranslate{

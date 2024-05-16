@@ -1,11 +1,12 @@
 use actix_web::{get, HttpMessage, HttpRequest, HttpResponse, post, web};
 use actix_web::cookie::Cookie;
+use actix_web::http::header;
 use crate::base::{file_openString, get_nowtime_str};
-use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesId, RequestResult, ResultGptTranslate, ResultTranslate, Translate};
+use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesId, RequestResult, ResultGptTranslate, ResultTranslate, Translate, TranslateGpt};
 use crate::gpt_module::GptModule;
 use crate::jwt::{Claims, create_token};
-use crate::models::{MyError, MysqlDB};
-use crate::render_temps::CurrentLang;
+use crate::models::{MyError, MysqlDB, Translated};
+use crate::render_temps::CurrentLangTemplate;
 use crate::StateDb;
 use crate::translate_module::DeeplModule;
 
@@ -39,21 +40,67 @@ pub async fn m_set_dictionaries(req:HttpRequest,current_lang:web::Json<CurrentLa
     }
 
 }
+
+#[get("/outauth")]
+pub async fn m_outauth(state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let cookie = Cookie::build("refresh_token", "".to_string())
+        .path("/")
+        .http_only(true)
+        .finish();
+    let respon=HttpResponse::Found()
+        .insert_header((header::LOCATION, "/view/login"))
+        .cookie(cookie)
+        .finish();
+    Ok(respon)
+
+}
 #[post("/deepltranslate")]
 pub async fn m_deepl_translate(req:HttpRequest,translate_info:web::Json<Translate>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let text_=DeeplModule::translate(state.deepl_api.clone(),translate_info.from_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone()).await?;
     Ok(HttpResponse::Ok().json(ResultTranslate{text:text_}))
 }
 #[post("/gpttranslate")]
-pub async fn m_gpt_translate(req:HttpRequest,translate_info:web::Json<Translate>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
-    let query=format!("You should provide the answer only in Json in the format of the following data:
-    {{
-    \"translate\":\"\",
-    \"explanation\":\"\",
-    }}
-Adapt and translate this {} sentence to {} conversational level, and translate it exactly according to the content and its meaning: \"{}\"
-There should be a translation in the \"translate\" variable. In the \"explanation\" varialbe, there should be a short explanation of your translation, in {}.",
-    translate_info.from_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone(),translate_info.from_lang.clone());
-    let translate:ResultGptTranslate=GptModule::send(state.gpt_api.clone(),query).await?;
-    Ok(HttpResponse::Ok().json(translate))
+pub async fn m_gpt_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let query=format!("Only respond in JSON format with the following data:
+{{
+     \"translate\":\"\",
+     \"explanation\":\"\"
+}}
+Adapt and translate this {} sentence into spoken {}, adapting it according to content and meaning: \"{}\".
+I will also give you the meaning of the sentence that the user wanted to convey: \"{}\"
+In the answer:
+The \"translate\" field must contain a translation. The \"explanation\" field should contain a short explanation of your adapted sentence, it is important that the explanation should be written in {} language.",
+    translate_info.from_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone(),translate_info.text_explain.clone(),translate_info.from_lang.clone());
+    let translate:Result<ResultGptTranslate,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
+    match translate {
+        Ok(result) => {
+            Ok(HttpResponse::Ok().json(result))
+        }
+        Err(error) => {
+            let res_err=ResultGptTranslate{translate:"Error, please try again".to_string(),explanation:"Error, please try again".to_string()};
+            Ok(HttpResponse::Ok().json(res_err))
+        }
+    }
+}
+#[post("/savetranslate")]
+pub async fn m_save_translate(req:HttpRequest,translate_info:web::Json<Translated>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        MysqlDB::saveTranslate(state.mysql_db.clone(),translate_info.into_inner(),claims.user_id).await?;
+        Ok(HttpResponse::Ok().json(RequestResult{status:true}))
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+
+}
+#[post("/deletetranslate")]
+pub async fn m_delete_translate(req:HttpRequest,translate_info:web::Json<Translated>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        MysqlDB::saveTranslate(state.mysql_db.clone(),translate_info.into_inner(),claims.user_id).await?;
+        Ok(HttpResponse::Ok().json(RequestResult{status:true}))
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+
 }

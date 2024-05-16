@@ -91,6 +91,9 @@ async fn main() -> std::io::Result<()> {
                             .wrap(CheckUser)
                             .service(view_controller::m_learn_main)
                             .service(view_controller::m_translate_main)
+                            .service(view_controller::m_translate_history)
+                            .service(view_controller::m_translate_history_pagination)
+                            .service(view_controller::m_translate_history_item_show)
                     )
 
             )
@@ -110,6 +113,8 @@ async fn main() -> std::io::Result<()> {
                             .service(api_user_controller::m_set_dictionaries)
                             .service(api_user_controller::m_deepl_translate)
                             .service(api_user_controller::m_gpt_translate)
+                            .service(api_user_controller::m_save_translate)
+                            .service(api_user_controller::m_outauth)
                     )
                     .service(
                         web::scope("/userstart")

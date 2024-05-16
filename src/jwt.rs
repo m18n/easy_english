@@ -2,7 +2,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use jsonwebtoken::{decode, DecodingKey, encode, EncodingKey, Header, Validation};
 use crate::models::{MysqlInfo, UserDictionary};
-use crate::render_temps::CurrentLang;
+use crate::render_temps::CurrentLangTemplate;
 
 #[derive(Debug, Serialize, Deserialize,Clone)]
 pub struct Claims {

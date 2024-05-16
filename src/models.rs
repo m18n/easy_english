@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 use crate::base::get_nowtime_str;
 use crate::controllers::object_of_controller::AuthInfo;
 use crate::globals::LOGS_DB_ERROR;
-#[derive(Error, Debug)]
+#[derive(Error, Debug,Clone)]
 pub enum MyError {
     #[error("")]
     SiteError(String), // Автоматично конвертує sqlx::Error у MyError
@@ -77,7 +77,27 @@ pub struct MysqlInfo{
     pub database:String,
     pub port:String
 }
+#[derive(Debug, Serialize, Deserialize, FromRow,Clone,PartialEq,Content)]
+pub struct Translated{
+    pub id:i32,
+    pub lang_from_translated_id:i32,
+    pub lang_into_translated_id:i32,
+    pub translated_text:String,
+    pub context_text:String,
+    pub deepl_translated:String,
+    pub deepl_check_deepl:String,
+    pub gpt_translated:String,
+    pub deepl_check_gpt_translated:String,
+    pub explanation_gpt:String
+}
 
+impl Translated {
+    pub fn new()->Self{
+        Self{id:-1,lang_from_translated_id:-1,lang_into_translated_id:-1,translated_text:String::new()
+            ,context_text:String::new(),deepl_translated:String::new(),deepl_check_deepl:String::new(),gpt_translated:String::new(),
+        deepl_check_gpt_translated:String::new(),explanation_gpt:String::new()}
+    }
+}
 impl MysqlInfo {
     fn new()->Self{
         Self{ip:String::new(),login:String::new(),password:String::new(),database:String::new(),port:String::new()}
@@ -174,6 +194,58 @@ impl MysqlDB{
             })?;
         Ok(languages_supported)
     }
+    pub async fn getLanguage(mysql_db_m:Arc<Mutex<MysqlDB>>,id_lang:i32)->Result<LanguageSupported, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let languages_supported:Vec<LanguageSupported>= sqlx::query_as("SELECT * FROM languages_supported WHERE id=?")
+            .bind(id_lang)
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        if languages_supported.is_empty(){
+            let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), "DONT FOUND LANG".to_string());
+            return Err(MyError::SiteError(str_error));
+        }
+        Ok(languages_supported[0].clone())
+    }
+    pub async fn getTranslated(mysql_db_m:Arc<Mutex<MysqlDB>>,start_element:i32,size_element:i32,user_id:i32)->Result<Vec<Translated>, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let query=format!("SELECT * FROM translation_history WHERE user_id={} ORDER BY id DESC LIMIT {} OFFSET {} ;",user_id,size_element,start_element);
+        let translated:Vec<Translated>= sqlx::query_as(query.as_str())
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        Ok(translated)
+    }
+
+    pub async fn getTranslatedItem(mysql_db_m:Arc<Mutex<MysqlDB>>,id_item:i32,user_id:i32)->Result<Translated, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let query=format!("SELECT * FROM translation_history WHERE user_id={} AND id={};",user_id,id_item);
+        let translated:Vec<Translated>= sqlx::query_as(query.as_str())
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        if translated.is_empty(){
+            let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), "DONT FOUND");
+            return Err(MyError::SiteError(str_error));
+        }
+        Ok(translated[0].clone())
+    }
+
     pub async fn setDictionaries(mysql_db_m:Arc<Mutex<MysqlDB>>,dictionaries_id:Vec<i32>,user_id:i32)->Result<bool, MyError>{
         let mysql_db=mysql_db_m.lock().await;
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
@@ -187,6 +259,15 @@ impl MysqlDB{
         for res in results{
             res?;
         }
+        Ok(true)
+    }
+    pub async fn saveTranslate(mysql_db_m:Arc<Mutex<MysqlDB>>,translated_info:Translated,user_id:i32)->Result<bool, MyError>{
+        let query=format!("INSERT INTO translation_history (lang_from_translated_id,lang_into_translated_id,translated_text,\
+        context_text,deepl_translated,deepl_check_deepl,gpt_translated,deepl_check_gpt_translated,explanation_gpt,user_id) VALUES ({},{},\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",{})",
+        translated_info.lang_from_translated_id,translated_info.lang_into_translated_id,translated_info.translated_text,
+        translated_info.context_text,translated_info.deepl_translated,translated_info.deepl_check_deepl,translated_info.gpt_translated,translated_info.deepl_check_gpt_translated,
+        translated_info.explanation_gpt,user_id);
+        Self::executeSql(mysql_db_m.clone(),query,"save translated".to_string()).await?;
         Ok(true)
     }
 }
