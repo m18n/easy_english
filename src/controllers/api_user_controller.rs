@@ -5,7 +5,7 @@ use crate::base::{file_openString, get_nowtime_str};
 use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesId, RequestResult, ResultGptTranslate, ResultTranslate, Translate, TranslateGpt};
 use crate::gpt_module::GptModule;
 use crate::jwt::{Claims, create_token};
-use crate::models::{MyError, MysqlDB, Translated};
+use crate::models::{MyError, MysqlDB, Translated, TranslatedId};
 use crate::render_temps::CurrentLangTemplate;
 use crate::StateDb;
 use crate::translate_module::DeeplModule;
@@ -54,35 +54,37 @@ pub async fn m_outauth(state: web::Data<StateDb>)->Result<HttpResponse, MyError>
     Ok(respon)
 
 }
-#[post("/deepltranslate")]
+#[post("/translator/deepltranslate")]
 pub async fn m_deepl_translate(req:HttpRequest,translate_info:web::Json<Translate>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let text_=DeeplModule::translate(state.deepl_api.clone(),translate_info.from_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone()).await?;
     Ok(HttpResponse::Ok().json(ResultTranslate{text:text_}))
 }
-#[post("/gpttranslate")]
+#[post("/translator/gpttranslate")]
 pub async fn m_gpt_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
-    let query=format!("Only respond in JSON format with the following data:
+    let query=format!("
+Відповідайте лише у форматі JSON із такими даними:
 {{
-     \"translate\":\"\",
-     \"explanation\":\"\"
+      \"sentence:\"\",
+      \"explanation\":\"\"
 }}
-Adapt and translate this {} sentence into spoken {}, adapting it according to content and meaning: \"{}\".
-I will also give you the meaning of the sentence that the user wanted to convey: \"{}\"
-In the answer:
-The \"translate\" field must contain a translation. The \"explanation\" field should contain a short explanation of your adapted sentence, it is important that the explanation should be written in {} language.",
-    translate_info.from_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone(),translate_info.text_explain.clone(),translate_info.from_lang.clone());
+Як сказати це {} мовою, головне розмовною {} мовою, щоб сказати той самий зміст : \"{}\".
+Ти можеш не притримуватись структури мого речення, дивись тільки на зміст того що я хотів сказати. Я також наведу вам значення речення, яке я хотів передати реченням: \"{}\".
+У відповідь:
+Поле \"sentence\" має містити твоє створене речення. Поле \"explanation\" повинно містити коротке пояснення вашого створеного речення {} мовою.",
+   translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone(),
+    translate_info.text_explain.clone(),translate_info.from_lang.clone());
     let translate:Result<ResultGptTranslate,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
     match translate {
         Ok(result) => {
             Ok(HttpResponse::Ok().json(result))
         }
         Err(error) => {
-            let res_err=ResultGptTranslate{translate:"Error, please try again".to_string(),explanation:"Error, please try again".to_string()};
+            let res_err=ResultGptTranslate{sentence:"Error, please try again".to_string(),explanation:"Error, please try again".to_string()};
             Ok(HttpResponse::Ok().json(res_err))
         }
     }
 }
-#[post("/savetranslate")]
+#[post("/translator/savetranslated")]
 pub async fn m_save_translate(req:HttpRequest,translate_info:web::Json<Translated>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     if let Some(claims) = req.extensions().get::<Claims>(){
         MysqlDB::saveTranslate(state.mysql_db.clone(),translate_info.into_inner(),claims.user_id).await?;
@@ -93,10 +95,10 @@ pub async fn m_save_translate(req:HttpRequest,translate_info:web::Json<Translate
     }
 
 }
-#[post("/deletetranslate")]
-pub async fn m_delete_translate(req:HttpRequest,translate_info:web::Json<Translated>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+#[post("/translator/history/deleteitem")]
+pub async fn m_delete_translated(req:HttpRequest,translate_info:web::Json<TranslatedId>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     if let Some(claims) = req.extensions().get::<Claims>(){
-        MysqlDB::saveTranslate(state.mysql_db.clone(),translate_info.into_inner(),claims.user_id).await?;
+        MysqlDB::deleteTranslated(state.mysql_db.clone(),translate_info.into_inner(),claims.user_id).await?;
         Ok(HttpResponse::Ok().json(RequestResult{status:true}))
     }else{
         let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());

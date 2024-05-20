@@ -124,3 +124,4 @@ pub async fn m_translate_history_item_show(req:HttpRequest,state: web::Data<Stat
     let tpl = Template::new(contents).unwrap();
     Ok(HttpResponse::Ok().content_type("text/html").body(tpl.render(&template)))
 }
+//test

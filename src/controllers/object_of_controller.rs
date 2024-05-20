@@ -45,7 +45,7 @@ pub struct ResultTranslate{
 }
 #[derive(Deserialize,Serialize,Clone)]
 pub struct ResultGptTranslate{
-    pub translate:String,
+    pub sentence:String,
     pub explanation:String,
 }
 

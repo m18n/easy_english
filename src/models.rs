@@ -90,7 +90,10 @@ pub struct Translated{
     pub deepl_check_gpt_translated:String,
     pub explanation_gpt:String
 }
-
+#[derive(Debug, Serialize, Deserialize, FromRow,Clone,PartialEq,Content)]
+pub struct TranslatedId{
+    pub id:i32,
+}
 impl Translated {
     pub fn new()->Self{
         Self{id:-1,lang_from_translated_id:-1,lang_into_translated_id:-1,translated_text:String::new()
@@ -268,6 +271,11 @@ impl MysqlDB{
         translated_info.context_text,translated_info.deepl_translated,translated_info.deepl_check_deepl,translated_info.gpt_translated,translated_info.deepl_check_gpt_translated,
         translated_info.explanation_gpt,user_id);
         Self::executeSql(mysql_db_m.clone(),query,"save translated".to_string()).await?;
+        Ok(true)
+    }
+    pub async fn deleteTranslated(mysql_db_m:Arc<Mutex<MysqlDB>>,translated_info:TranslatedId,user_id:i32)->Result<bool, MyError>{
+        let query=format!("DELETE FROM translation_history WHERE user_id={} AND id={}",user_id,translated_info.id);
+        Self::executeSql(mysql_db_m.clone(),query,"delete translated".to_string()).await?;
         Ok(true)
     }
 }

@@ -17,9 +17,7 @@ fn main() {
     let dockerignore_source = Path::new(".dockerignore");
     let dockerignore_dest =target_dir.join(".dockerignore");
     fs::copy(dockerignore_source, dockerignore_dest).expect("Failed to copy .docker");
-    let env = Path::new(".env");
-    let env_dest =target_dir.join(".env");
-    fs::copy(env, env_dest).expect("Failed to copy .env");
+
 
     let new_path = target_dir.join("easy_english_web");
     if new_path.exists() {

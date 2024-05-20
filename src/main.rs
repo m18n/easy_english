@@ -53,7 +53,8 @@ async fn main() -> std::io::Result<()> {
     // logger.get_log(vec!["error".to_string()]).await;
 
     //println!("{}",logger.get_key_json(vec!["error".to_string(),"sqlite".to_string()]).await.to_string());
-    let mysql_info=MysqlInfo{ip:"213.226.95.124".to_string(),login:"root_all".to_string(),password:"1".to_string(),database:"easy_english".to_string(),port:"6060".to_string()};
+    let mysql_info=MysqlInfo{ip:env::var("IP").unwrap(),login:env::var("LOGIN").unwrap(),password:env::var("PASSWORD").unwrap(),database:env::var("DATABASE").unwrap(),port:env::var("PORT").unwrap()};
+    //let mysql_info=MysqlInfo{ip:"213.226.95.124".to_string(),login:"root_all".to_string(),password:"1".to_string(),database:"easy_english".to_string(),port:"6060".to_string()};
     let mut mysql_db=MysqlDB::new();
     let deepl_api_=DeeplModule::connect(env::var("DEEPL").unwrap()).await;
     let gpt_api_=GptModule::connect(env::var("GPT").unwrap()).await;
@@ -114,6 +115,7 @@ async fn main() -> std::io::Result<()> {
                             .service(api_user_controller::m_deepl_translate)
                             .service(api_user_controller::m_gpt_translate)
                             .service(api_user_controller::m_save_translate)
+                            .service(api_user_controller::m_delete_translated)
                             .service(api_user_controller::m_outauth)
                     )
                     .service(
