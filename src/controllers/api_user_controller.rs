@@ -61,17 +61,17 @@ pub async fn m_deepl_translate(req:HttpRequest,translate_info:web::Json<Translat
 }
 #[post("/translator/gpttranslate")]
 pub async fn m_gpt_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
-    let query=format!("
+    let query=format!("Будь вчителем {} мови.
 Відповідайте лише у форматі JSON із такими даними:
 {{
       \"sentence:\"\",
       \"explanation\":\"\"
 }}
-Як сказати це {} мовою, головне розмовною {} мовою, щоб сказати той самий зміст : \"{}\".
-Ти можеш не притримуватись структури мого речення, дивись тільки на зміст того що я хотів сказати. Я також наведу вам значення речення, яке я хотів передати реченням: \"{}\".
+Як сказати моє речення {} мовою, розмовною {} мовою, щоб передати той самий зміст, та сенс. Моє речення написане {} мовою: \"{}\".
+Я також наведу вам значення речення, яке я хотів передати: \"{}\".
 У відповідь:
-Поле \"sentence\" має містити твоє створене речення. Поле \"explanation\" повинно містити коротке пояснення вашого створеного речення {} мовою.",
-   translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone(),
+Поле \"sentence\" має містити твоє речення яке ти створив. Поле \"explanation\" повинно містити коротке пояснення вашого стовреного речення, твоє поясення має бути написано {} мовою.",
+   translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.from_lang.clone(),translate_info.text.clone(),
     translate_info.text_explain.clone(),translate_info.from_lang.clone());
     let translate:Result<ResultGptTranslate,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
     match translate {
@@ -79,6 +79,8 @@ pub async fn m_gpt_translate(req:HttpRequest,translate_info:web::Json<TranslateG
             Ok(HttpResponse::Ok().json(result))
         }
         Err(error) => {
+            error.pushlog().await;
+
             let res_err=ResultGptTranslate{sentence:"Error, please try again".to_string(),explanation:"Error, please try again".to_string()};
             Ok(HttpResponse::Ok().json(res_err))
         }

@@ -18,6 +18,8 @@ use std::env;
 use std::sync::Arc;
 use actix_web::{App, HttpServer, web};
 use actix_files as fs;
+use async_openai::Client;
+use async_openai::config::OpenAIConfig;
 use chat_gpt_rs::api::Api;
 use deepl::DeepLApi;
 use no_cache_middleware::NoCache;
@@ -34,10 +36,11 @@ use crate::gpt_module::GptModule;
 use crate::models::{MyError, MysqlDB, MysqlInfo};
 use crate::translate_module::DeeplModule;
 use dotenv::dotenv;
+
 pub struct StateDb{
     pub mysql_db:Arc<Mutex<MysqlDB>>,
     deepl_api:DeepLApi,
-    gpt_api:Arc<Api>
+    gpt_api:Arc<Client<OpenAIConfig>>
 }
 
 #[actix_web::main]
@@ -57,7 +60,7 @@ async fn main() -> std::io::Result<()> {
     //let mysql_info=MysqlInfo{ip:"213.226.95.124".to_string(),login:"root_all".to_string(),password:"1".to_string(),database:"easy_english".to_string(),port:"6060".to_string()};
     let mut mysql_db=MysqlDB::new();
     let deepl_api_=DeeplModule::connect(env::var("DEEPL").unwrap()).await;
-    let gpt_api_=GptModule::connect(env::var("GPT").unwrap()).await;
+    let gpt_api_=GptModule::connect().await;
     let res_conn=mysql_db.connect(mysql_info).await;
     match res_conn {
         Ok(_) => {}
