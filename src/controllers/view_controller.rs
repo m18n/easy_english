@@ -8,8 +8,8 @@ use sqlx::query;
 use crate::base::{file_openString, get_nowtime_str};
 use crate::controllers::object_of_controller::{CurrentLanguage, RequestResult};
 use crate::jwt::{Claims, create_token};
-use crate::models::{MyError, MysqlDB};
-use crate::render_temps::{CurrentLangTemplate, LanguagesSupportedTemplate, TranslateHistoryItemTemplate, TranslateHistoryTemplate, TranslateTemplate};
+use crate::models::{LanguageSupported, MyError, MysqlDB};
+use crate::render_temps::{CurrentLangTemplate, InitTemplate, LanguagesSupportedTemplate, TranslateHistoryItemTemplate, TranslateHistoryTemplate, TranslateTemplate};
 use crate::StateDb;
 
 #[get("/login")]
@@ -23,9 +23,11 @@ pub async fn m_login()->Result<HttpResponse, MyError>{
 #[get("/initdictionaries")]
 pub async fn m_init_dictionaries(state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let dictionaries=MysqlDB::getLanguages(state.mysql_db.clone()).await?;
+    let lang_levels=MysqlDB::getLanguagesLevels(state.mysql_db.clone()).await?;
     let contents = file_openString("./easy_english_web/init_dictionaries.html").await?;
-    let template=LanguagesSupportedTemplate{
-        languages:dictionaries
+    let template=InitTemplate{
+        languages:dictionaries,
+        languages_levels:lang_levels
     };
     let tpl = Template::new(contents).unwrap();
     Ok(HttpResponse::Ok().content_type("text/html").body(tpl.render(&template)))
@@ -70,14 +72,21 @@ pub async fn m_translate_main(req:HttpRequest,state: web::Data<StateDb>)->Result
 }
 #[get("/translate/history")]
 pub async fn m_translate_history(req:HttpRequest,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let mut cookie=Claims::new();
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        cookie=claims.clone();
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
     let response = HttpResponse::Found()
-        .insert_header((http::header::LOCATION, "/view/userspace/translate/history/p/1"))
+        .insert_header((http::header::LOCATION, format!("/view/userspace/translate/history/{}/p/1",cookie.user_dictionaries[cookie.current_lang_index].language_name)))
         .finish();
     Ok(response)
 }
-#[get("/translate/history/p/{number_p}")]
-pub async fn m_translate_history_pagination(req:HttpRequest,state: web::Data<StateDb>,number_p:web::Path<i32>)->Result<HttpResponse, MyError>{
-    let mut num=number_p.into_inner();
+#[get("/translate/history/{lang}/p/{number_p}")]
+pub async fn m_translate_history_pagination(req:HttpRequest,state: web::Data<StateDb>,path:web::Path<(String,i32)>)->Result<HttpResponse, MyError>{
+    let (mut lang,mut num)=path.into_inner();
     num-=1;
     let mut cookie=Claims::new();
     if let Some(claims) = req.extensions().get::<Claims>(){
@@ -86,12 +95,19 @@ pub async fn m_translate_history_pagination(req:HttpRequest,state: web::Data<Sta
         let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
         return Err(MyError::SiteError(str_error));
     }
-    let trans=MysqlDB::getTranslated(state.mysql_db.clone(),num*10,10,cookie.user_id).await?;
+    let mut lang_id=LanguageSupported{id:-1,language_name:String::new()};
+    if lang!="all"{
+        lang_id=MysqlDB::getLanguageByName(state.mysql_db.clone(),lang).await?;
+    }
+    let langs=MysqlDB::getLanguages(state.mysql_db.clone()).await?;
+    let trans=MysqlDB::getTranslated(state.mysql_db.clone(),num*10,10,cookie.user_id,lang_id.id).await?;
     let contents = file_openString("./easy_english_web/translate_history.html").await?;
     let template=TranslateHistoryTemplate{
         current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
+        current_lang_history_id:lang_id.id,
         languages:cookie.user_dictionaries.clone(),
-        translate_history:trans
+        translate_history:trans,
+        all_languages:langs
     };
     let tpl = Template::new(contents).unwrap();
     Ok(HttpResponse::Ok().content_type("text/html").body(tpl.render(&template)))

@@ -10,7 +10,7 @@ use sqlx::FromRow;
 use thiserror::Error;
 use tokio::sync::Mutex;
 use crate::base::get_nowtime_str;
-use crate::controllers::object_of_controller::AuthInfo;
+use crate::controllers::object_of_controller::{AuthInfo, DictionariesInfo};
 use crate::globals::LOGS_DB_ERROR;
 #[derive(Error, Debug,Clone)]
 pub enum MyError {
@@ -62,12 +62,19 @@ pub struct User{
 pub struct UserDictionary{
     pub id:i32,
     pub language_name:String,
-    pub language_id:i32
+    pub language_id:i32,
+    pub language_level:String,
+    pub language_level_id:i32
 }
 #[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone,Content)]
 pub struct LanguageSupported{
     pub id:i32,
     pub language_name:String
+}
+#[derive(Debug, Serialize, Deserialize,sqlx::FromRow,Clone,Content)]
+pub struct LanguagesLevels{
+    pub id:i32,
+    pub level_name:String
 }
 #[derive(Debug, Serialize, Deserialize, FromRow,Clone,PartialEq)]
 pub struct MysqlInfo{
@@ -171,9 +178,11 @@ impl MysqlDB{
         let mysql_db=mysql_db_m.lock().await;
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
         drop(mysql_db);
-        let user_dictionary:Vec<UserDictionary>= sqlx::query_as("SELECT ud.id, ls.language_name, ls.id AS language_id
+
+        let user_dictionary:Vec<UserDictionary>= sqlx::query_as("SELECT ud.id, ls.language_name, ls.id AS language_id, lv.id AS language_level_id , lv.level_name AS language_level
         FROM user_dictionaries AS ud
         JOIN languages_supported AS ls ON ud.language_id = ls.id
+        JOIN language_levels AS lv ON ud.language_level = lv.id
         WHERE ud.user_id = ?")
             .bind(user_id)
             .fetch_all(&mysqlpool)
@@ -189,6 +198,19 @@ impl MysqlDB{
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
         drop(mysql_db);
         let languages_supported:Vec<LanguageSupported>= sqlx::query_as("SELECT * FROM languages_supported")
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        Ok(languages_supported)
+    }
+    pub async fn getLanguagesLevels(mysql_db_m:Arc<Mutex<MysqlDB>>)->Result<Vec<LanguagesLevels>, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let languages_supported:Vec<LanguagesLevels>= sqlx::query_as("SELECT * FROM language_levels")
             .fetch_all(&mysqlpool)
             .await
             .map_err( |e|  {
@@ -215,11 +237,36 @@ impl MysqlDB{
         }
         Ok(languages_supported[0].clone())
     }
-    pub async fn getTranslated(mysql_db_m:Arc<Mutex<MysqlDB>>,start_element:i32,size_element:i32,user_id:i32)->Result<Vec<Translated>, MyError>{
+    pub async fn getLanguageByName(mysql_db_m:Arc<Mutex<MysqlDB>>,lang_name:String)->Result<LanguageSupported, MyError>{
         let mysql_db=mysql_db_m.lock().await;
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
         drop(mysql_db);
-        let query=format!("SELECT * FROM translation_history WHERE user_id={} ORDER BY id DESC LIMIT {} OFFSET {} ;",user_id,size_element,start_element);
+        let languages_supported:Vec<LanguageSupported>= sqlx::query_as("SELECT * FROM languages_supported WHERE language_name=?")
+            .bind(lang_name)
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        if languages_supported.is_empty(){
+            let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), "DONT FOUND LANG".to_string());
+            return Err(MyError::SiteError(str_error));
+        }
+        Ok(languages_supported[0].clone())
+    }
+    pub async fn getTranslated(mysql_db_m:Arc<Mutex<MysqlDB>>,start_element:i32,size_element:i32,user_id:i32,lang_id:i32)->Result<Vec<Translated>, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let mut query=String::new();
+        if lang_id!=-1 {
+            query = format!("SELECT * FROM translation_history WHERE user_id={} AND lang_into_translated_id={} ORDER BY id DESC LIMIT {} OFFSET {} ;"
+                                , user_id, lang_id, size_element, start_element);
+        }else{
+            query = format!("SELECT * FROM translation_history WHERE user_id={} ORDER BY id DESC LIMIT {} OFFSET {} ;"
+                                , user_id, size_element, start_element);
+        }
         let translated:Vec<Translated>= sqlx::query_as(query.as_str())
             .fetch_all(&mysqlpool)
             .await
@@ -249,13 +296,14 @@ impl MysqlDB{
         Ok(translated[0].clone())
     }
 
-    pub async fn setDictionaries(mysql_db_m:Arc<Mutex<MysqlDB>>,dictionaries_id:Vec<i32>,user_id:i32)->Result<bool, MyError>{
+    pub async fn setDictionaries(mysql_db_m:Arc<Mutex<MysqlDB>>,dictionaries_info:DictionariesInfo,user_id:i32)->Result<bool, MyError>{
         let mysql_db=mysql_db_m.lock().await;
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
         drop(mysql_db);
         let mut tasks_array =Vec::new();
-        for element in dictionaries_id{
-            let query = format!("INSERT INTO user_dictionaries (user_id,language_id) VALUES ({},{});",user_id,element);
+        for i in 0..dictionaries_info.dictionaries_ids.len(){
+            let query = format!("INSERT INTO user_dictionaries (user_id,language_id,language_level) VALUES ({},{},{});", user_id,
+                                dictionaries_info.dictionaries_ids[i], dictionaries_info.dictionaries_level_ids[i]);
             tasks_array.push(Self::executeSql(mysql_db_m.clone(),query.to_string(),"set dictionaries".to_string()));
         }
         let results=join_all(tasks_array).await;

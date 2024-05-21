@@ -71,7 +71,7 @@ async fn main() -> std::io::Result<()> {
         Err(e) => {e.pushlog().await;}
     }
     let state=web::Data::new(StateDb{
-        google_module:Arc::new(GoogleModule::init("AIzaSyDFTUsRrhYJPY6bQRO9I-brTQ7xma3Iacc".to_string())),
+        google_module:Arc::new(GoogleModule::init(env::var("GOOGLE_API").unwrap())),
         mysql_db:Arc::new(Mutex::new(mysql_db)),
         deepl_api:deepl_api_.clone(),
         gpt_api:gpt_api_

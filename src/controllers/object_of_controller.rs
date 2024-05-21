@@ -15,8 +15,9 @@ pub struct ErrorDb{
     pub error:bool
 }
 #[derive(Deserialize,Serialize,Clone)]
-pub struct DictionariesId{
-    pub dictionaries_id:Vec<i32>
+pub struct DictionariesInfo{
+    pub dictionaries_ids:Vec<i32>,
+    pub dictionaries_level_ids:Vec<i32>
 }
 #[derive(Deserialize,Serialize,Clone,Content)]
 pub struct CurrentLanguage{

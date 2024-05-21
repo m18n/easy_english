@@ -2,7 +2,7 @@ use actix_web::{get, HttpMessage, HttpRequest, HttpResponse, post, web};
 use actix_web::cookie::Cookie;
 use actix_web::http::header;
 use crate::base::{file_openString, get_nowtime_str};
-use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesId, RequestResult, ResultGptTranslate, ResultTranslate, Translate, TranslateGpt};
+use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptTranslate, ResultTranslate, Translate, TranslateGpt};
 use crate::google_module::GoogleModule;
 use crate::gpt_module::GptModule;
 use crate::jwt::{Claims, create_token};
