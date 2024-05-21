@@ -13,6 +13,7 @@ mod check_auth_api_middleware;
 mod check_user_api_middleware;
 mod gpt_module;
 mod translate_module;
+mod google_module;
 
 use std::env;
 use std::sync::Arc;
@@ -36,11 +37,14 @@ use crate::gpt_module::GptModule;
 use crate::models::{MyError, MysqlDB, MysqlInfo};
 use crate::translate_module::DeeplModule;
 use dotenv::dotenv;
+use actix_cors::Cors;
+use crate::google_module::GoogleModule;
 
 pub struct StateDb{
     pub mysql_db:Arc<Mutex<MysqlDB>>,
     deepl_api:DeepLApi,
-    gpt_api:Arc<Client<OpenAIConfig>>
+    gpt_api:Arc<Client<OpenAIConfig>>,
+    google_module:Arc<GoogleModule>
 }
 
 #[actix_web::main]
@@ -67,6 +71,7 @@ async fn main() -> std::io::Result<()> {
         Err(e) => {e.pushlog().await;}
     }
     let state=web::Data::new(StateDb{
+        google_module:Arc::new(GoogleModule::init("AIzaSyDFTUsRrhYJPY6bQRO9I-brTQ7xma3Iacc".to_string())),
         mysql_db:Arc::new(Mutex::new(mysql_db)),
         deepl_api:deepl_api_.clone(),
         gpt_api:gpt_api_
@@ -74,7 +79,9 @@ async fn main() -> std::io::Result<()> {
     println!("START WEB SERVER");
 
     HttpServer::new(move || {
+        let cors = Cors::permissive();
         App::new()
+            .wrap(cors)
             .app_data(web::Data::clone(&state))
             .default_service(web::route().to(settings_controller::m_none))
             .wrap(NoCache)
@@ -109,6 +116,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api")
                     .wrap(CheckDbApi)
+                    .service(api_user_controller::m_text_to_audio)
                     .service(api_controller::m_auth)
                     .service(
                         web::scope("/userspace")
@@ -120,6 +128,7 @@ async fn main() -> std::io::Result<()> {
                             .service(api_user_controller::m_save_translate)
                             .service(api_user_controller::m_delete_translated)
                             .service(api_user_controller::m_outauth)
+
                     )
                     .service(
                         web::scope("/userstart")

@@ -21,3 +21,4 @@ Cargo.lock
 
 # Ігнорування файлів з секретами
 /.env
+desing_anki/

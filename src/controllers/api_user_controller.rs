@@ -3,6 +3,7 @@ use actix_web::cookie::Cookie;
 use actix_web::http::header;
 use crate::base::{file_openString, get_nowtime_str};
 use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesId, RequestResult, ResultGptTranslate, ResultTranslate, Translate, TranslateGpt};
+use crate::google_module::GoogleModule;
 use crate::gpt_module::GptModule;
 use crate::jwt::{Claims, create_token};
 use crate::models::{MyError, MysqlDB, Translated, TranslatedId};
@@ -52,6 +53,26 @@ pub async fn m_outauth(state: web::Data<StateDb>)->Result<HttpResponse, MyError>
         .cookie(cookie)
         .finish();
     Ok(respon)
+
+}
+#[get("/text")]
+pub async fn m_text_to_audio(state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let bytes=GoogleModule::text_to_speach(state.google_module.clone(),"antal".to_string()).await;
+    let mut res_bytes=Vec::new();
+    match bytes {
+        Ok(bytes) => {
+            res_bytes=bytes;
+        }
+        Err(e) => {
+
+        }
+    }
+    //let bytes=GptModule::text_to_audio(state.gpt_api.clone(),"Det finns en uppfattning om att vi föds med ett stort antal hjärnceller".to_string()).await?;
+    // let respon=HttpResponse::Found()
+    //     .insert_header((header::LOCATION, "/view/login"))
+    //     .finish();
+    Ok(HttpResponse::Ok()
+        .content_type("audio/mpeg").body(web::Bytes::from(res_bytes)))
 
 }
 #[post("/translator/deepltranslate")]
