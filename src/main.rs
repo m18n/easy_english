@@ -14,6 +14,7 @@ mod check_user_api_middleware;
 mod gpt_module;
 mod translate_module;
 mod google_module;
+mod cookie;
 
 use std::env;
 use std::sync::Arc;

@@ -12,7 +12,8 @@ use futures_util::future::LocalBoxFuture;
 use futures_util::FutureExt;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use sqlx::error::DatabaseError;
-use crate::jwt::{Claims, create_token, validate_token};
+use crate::cookie::create_cookie_auth_clear;
+use crate::jwt::{Claims, validate_token};
 use crate::models::{MyError, MysqlInfo};
 use crate::StateDb;
 
@@ -83,10 +84,7 @@ impl<S, B> Service<ServiceRequest> for CheckUserMiddleware<S>
             let state = req.app_data::<web::Data<StateDb>>().unwrap();
             println!("Hi from start. You requested: {}", req.path());
             let token=extract_cookie(&req,"refresh_token");
-            let cookie = Cookie::build("refresh_token", "")
-                .path("/")
-                .http_only(true)
-                .finish();
+            let cookie =create_cookie_auth_clear();
             let response = HttpResponse::Found()
                 .insert_header((http::header::LOCATION, "/view/login")).cookie(cookie)
                 .finish().map_into_right_body();

@@ -7,7 +7,7 @@ use ramhorns::Template;
 use sqlx::query;
 use crate::base::{file_openString, get_nowtime_str};
 use crate::controllers::object_of_controller::{CurrentLanguage, RequestResult};
-use crate::jwt::{Claims, create_token};
+use crate::jwt::{Claims};
 use crate::models::{LanguageSupported, MyError, MysqlDB};
 use crate::render_temps::{CurrentLangTemplate, InitTemplate, LanguagesSupportedTemplate, TranslateHistoryItemTemplate, TranslateHistoryTemplate, TranslateTemplate};
 use crate::StateDb;

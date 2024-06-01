@@ -3,9 +3,10 @@ use actix_web::cookie::Cookie;
 use actix_web::http::header;
 use crate::base::{file_openString, get_nowtime_str};
 use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptTranslate, ResultTranslate, Translate, TranslateGpt};
+use crate::cookie::{create_cookie_auth, create_cookie_auth_clear};
 use crate::google_module::GoogleModule;
 use crate::gpt_module::GptModule;
-use crate::jwt::{Claims, create_token};
+use crate::jwt::{Claims};
 use crate::models::{MyError, MysqlDB, Translated, TranslatedId};
 use crate::render_temps::CurrentLangTemplate;
 use crate::StateDb;
@@ -29,10 +30,12 @@ pub async fn m_set_dictionaries(req:HttpRequest,current_lang:web::Json<CurrentLa
 
             }
         }
-        let cookie = Cookie::build("refresh_token", create_token(claims.user_id,claims.user_name.clone(),claims.admin,claims.user_dictionaries.clone(),new_index))
-            .path("/")
-            .http_only(true)
-            .finish();
+        let my_claims=Claims{
+
+            current_lang_index:new_index,
+            ..claims.clone()
+        };
+        let cookie=create_cookie_auth(my_claims.clone());
         let mut respon = HttpResponse::Ok().cookie(cookie).json(RequestResult { status: true });
         Ok(respon)
     }else{
@@ -44,20 +47,16 @@ pub async fn m_set_dictionaries(req:HttpRequest,current_lang:web::Json<CurrentLa
 
 #[get("/outauth")]
 pub async fn m_outauth(state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
-    let cookie = Cookie::build("refresh_token", "".to_string())
-        .path("/")
-        .http_only(true)
-        .finish();
+    let cookie =create_cookie_auth_clear();
     let respon=HttpResponse::Found()
         .insert_header((header::LOCATION, "/view/login"))
         .cookie(cookie)
         .finish();
     Ok(respon)
-
 }
 #[get("/text")]
 pub async fn m_text_to_audio(state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
-    let bytes=GoogleModule::text_to_speach(state.google_module.clone(),"antal".to_string()).await;
+    let bytes=GoogleModule::text_to_speach(state.google_module.clone(),"hej dåre".to_string()).await;
     let mut res_bytes=Vec::new();
     match bytes {
         Ok(bytes) => {

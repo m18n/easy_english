@@ -22,3 +22,4 @@ Cargo.lock
 # Ігнорування файлів з секретами
 /.env
 desing_anki/
+find_ip.sh
