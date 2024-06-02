@@ -74,13 +74,16 @@ pub async fn m_text_to_audio(state: web::Data<StateDb>)->Result<HttpResponse, My
         .content_type("audio/mpeg").body(web::Bytes::from(res_bytes)))
 
 }
-#[post("/translator/deepltranslate")]
+#[post("/translator/deepl/translate")]
 pub async fn m_deepl_translate(req:HttpRequest,translate_info:web::Json<Translate>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let text_=DeeplModule::translate(state.deepl_api.clone(),translate_info.from_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone()).await?;
     Ok(HttpResponse::Ok().json(ResultTranslate{text:text_}))
 }
-#[post("/translator/gpttranslate")]
-pub async fn m_gpt_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+// /translator/gpt/full/translate
+// /translator/gpt/short/translate
+
+#[post("/translator/gpt/full/speak/translate")]
+pub async fn m_gpt_full_speak_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let query=format!("Будь вчителем {} мови.
 Відповідайте лише у форматі JSON із такими даними:
 {{
@@ -93,6 +96,89 @@ pub async fn m_gpt_translate(req:HttpRequest,translate_info:web::Json<TranslateG
 Поле \"sentence\" має містити твоє речення яке ти створив. Поле \"explanation\" повинно містити коротке пояснення вашого стовреного речення, твоє поясення має бути написано {} мовою.",
    translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.from_lang.clone(),translate_info.text.clone(),
     translate_info.text_explain.clone(),translate_info.from_lang.clone());
+    let translate:Result<ResultGptTranslate,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
+    match translate {
+        Ok(result) => {
+            Ok(HttpResponse::Ok().json(result))
+        }
+        Err(error) => {
+            error.pushlog().await;
+
+            let res_err=ResultGptTranslate{sentence:"Error, please try again".to_string(),explanation:"Error, please try again".to_string()};
+            Ok(HttpResponse::Ok().json(res_err))
+        }
+    }
+}
+#[post("/translator/gpt/full/formal/translate")]
+pub async fn m_gpt_full_formal_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let query=format!("Будь вчителем {} мови.
+Відповідайте лише у форматі JSON із такими даними:
+{{
+      \"sentence:\"\",
+      \"explanation\":\"\"
+}}
+Як сказати моє речення {} мовою, формальною {} мовою, щоб передати той самий зміст, та сенс. Моє речення написане {} мовою: \"{}\".
+Я також наведу вам значення речення, яке я хотів передати: \"{}\".
+У відповідь:
+Поле \"sentence\" має містити твоє речення яке ти створив. Поле \"explanation\" повинно містити коротке пояснення вашого стовреного речення, твоє поясення має бути написано {} мовою.",
+                      translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.from_lang.clone(),translate_info.text.clone(),
+                      translate_info.text_explain.clone(),translate_info.from_lang.clone());
+    let translate:Result<ResultGptTranslate,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
+    match translate {
+        Ok(result) => {
+            Ok(HttpResponse::Ok().json(result))
+        }
+        Err(error) => {
+            error.pushlog().await;
+
+            let res_err=ResultGptTranslate{sentence:"Error, please try again".to_string(),explanation:"Error, please try again".to_string()};
+            Ok(HttpResponse::Ok().json(res_err))
+        }
+    }
+}
+#[post("/translator/gpt/short/speak/translate")]
+pub async fn m_gpt_short_speak_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let query=format!("Будь вчителем {} мови.
+Відповідайте лише у форматі JSON із такими даними:
+{{
+      \"sentence:\"\",
+      \"explanation\":\"\"
+}}
+Як сказати моє речення {} мовою, розмовною {} мовою, щоб передати той самий зміст, та сенс. Моє речення написане {} мовою: \"{}\".
+Я також наведу вам значення речення, яке я хотів передати: \"{}\".
+По можливості скороти речення, але щоб зміст та сенс не втратився.
+У відповідь:
+Поле \"sentence\" має містити твоє речення яке ти створив. Поле \"explanation\" повинно містити коротке пояснення вашого стовреного речення, твоє поясення має бути написано {} мовою.",
+                      translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.from_lang.clone(),translate_info.text.clone(),
+                      translate_info.text_explain.clone(),translate_info.from_lang.clone());
+    let translate:Result<ResultGptTranslate,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
+    match translate {
+        Ok(result) => {
+            Ok(HttpResponse::Ok().json(result))
+        }
+        Err(error) => {
+            error.pushlog().await;
+
+            let res_err=ResultGptTranslate{sentence:"Error, please try again".to_string(),explanation:"Error, please try again".to_string()};
+            Ok(HttpResponse::Ok().json(res_err))
+        }
+    }
+}
+#[post("/translator/gpt/short/formal/translate")]
+pub async fn m_gpt_short_formal_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let query=format!("Будь вчителем {} мови.
+Відповідайте лише у форматі JSON із такими даними:
+{{
+      \"sentence:\"\",
+      \"explanation\":\"\"
+}}
+Як сказати моє речення {} мовою, формальною {} мовою, щоб передати той самий зміст, та сенс. Моє речення написане {} мовою: \"{}\".
+Я також наведу вам значення речення, яке я хотів передати: \"{}\".
+По можливості скороти речення, але щоб зміст та сенс не втратився.
+У відповідь:
+Поле \"sentence\" має містити твоє речення яке ти створив. Поле \"explanation\" повинно містити коротке пояснення вашого стовреного речення, твоє поясення має бути написано {} мовою.",
+                      translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.into_lang.clone(),translate_info.from_lang.clone(),translate_info.text.clone(),
+                      translate_info.text_explain.clone(),translate_info.from_lang.clone());
     let translate:Result<ResultGptTranslate,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
     match translate {
         Ok(result) => {

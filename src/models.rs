@@ -93,9 +93,13 @@ pub struct Translated{
     pub context_text:String,
     pub deepl_translated:String,
     pub deepl_check_deepl:String,
-    pub gpt_translated:String,
-    pub deepl_check_gpt_translated:String,
-    pub explanation_gpt:String
+    pub speak_gpt_translated:String,
+    pub speak_deepl_check_gpt_translated:String,
+    pub speak_explanation_gpt:String,
+    pub formal_gpt_translated:String,
+    pub formal_deepl_check_gpt_translated:String,
+    pub formal_explanation_gpt:String,
+    pub is_full:bool
 }
 #[derive(Debug, Serialize, Deserialize, FromRow,Clone,PartialEq,Content)]
 pub struct TranslatedId{
@@ -104,8 +108,9 @@ pub struct TranslatedId{
 impl Translated {
     pub fn new()->Self{
         Self{id:-1,lang_from_translated_id:-1,lang_into_translated_id:-1,translated_text:String::new()
-            ,context_text:String::new(),deepl_translated:String::new(),deepl_check_deepl:String::new(),gpt_translated:String::new(),
-        deepl_check_gpt_translated:String::new(),explanation_gpt:String::new()}
+            ,context_text:String::new(),deepl_translated:String::new(),deepl_check_deepl:String::new(),speak_gpt_translated:String::new(),
+            speak_deepl_check_gpt_translated:String::new(),speak_explanation_gpt:String::new(),formal_gpt_translated:String::new(),
+            formal_deepl_check_gpt_translated:String::new(),formal_explanation_gpt:String::new(),is_full:false}
     }
 }
 impl MysqlInfo {
@@ -113,6 +118,7 @@ impl MysqlInfo {
         Self{ip:String::new(),login:String::new(),password:String::new(),database:String::new(),port:String::new()}
     }
 }
+//test
 pub struct MysqlDB{
     pub mysql:Option<MySqlPool>,
     pub last_info:MysqlInfo
@@ -314,10 +320,13 @@ impl MysqlDB{
     }
     pub async fn saveTranslate(mysql_db_m:Arc<Mutex<MysqlDB>>,translated_info:Translated,user_id:i32)->Result<bool, MyError>{
         let query=format!("INSERT INTO translation_history (lang_from_translated_id,lang_into_translated_id,translated_text,\
-        context_text,deepl_translated,deepl_check_deepl,gpt_translated,deepl_check_gpt_translated,explanation_gpt,user_id) VALUES ({},{},\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",{})",
+        context_text,deepl_translated,deepl_check_deepl,speak_gpt_translated,speak_deepl_check_gpt_translated,speak_explanation_gpt,\
+        formal_gpt_translated,formal_deepl_check_gpt_translated,formal_explanation_gpt,is_full,user_id) VALUES ({},{},\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",{},{})",
         translated_info.lang_from_translated_id,translated_info.lang_into_translated_id,translated_info.translated_text,
-        translated_info.context_text,translated_info.deepl_translated,translated_info.deepl_check_deepl,translated_info.gpt_translated,translated_info.deepl_check_gpt_translated,
-        translated_info.explanation_gpt,user_id);
+        translated_info.context_text,translated_info.deepl_translated,translated_info.deepl_check_deepl
+                          ,translated_info.speak_gpt_translated,translated_info.speak_deepl_check_gpt_translated,
+        translated_info.speak_explanation_gpt,translated_info.formal_gpt_translated,translated_info.formal_deepl_check_gpt_translated,
+        translated_info.formal_explanation_gpt,translated_info.is_full,user_id);
         Self::executeSql(mysql_db_m.clone(),query,"save translated".to_string()).await?;
         Ok(true)
     }
