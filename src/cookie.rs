@@ -7,7 +7,6 @@ pub fn create_cookie_auth_clear() ->Cookie<'static>{
     Cookie::build("refresh_token", "")
         .path("/")
         .http_only(true)
-        .max_age(Duration::days(2))
         .finish()
 }
 pub fn create_cookie_auth(mut claims:Claims) ->Cookie<'static>{
@@ -17,5 +16,6 @@ pub fn create_cookie_auth(mut claims:Claims) ->Cookie<'static>{
     Cookie::build("refresh_token", create_token_auth(claims))
         .path("/")
         .http_only(true)
+        .max_age(Duration::days(2))
         .finish()
 }
