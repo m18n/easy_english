@@ -9,6 +9,7 @@ pub fn create_cookie_auth_clear() ->Cookie<'static>{
         .http_only(true)
         .finish()
 }
+//test
 pub fn create_cookie_auth(mut claims:Claims) ->Cookie<'static>{
     if claims.exp==0 {
         claims.exp = 10000000000;

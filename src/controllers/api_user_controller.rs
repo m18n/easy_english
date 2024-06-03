@@ -2,7 +2,7 @@ use actix_web::{get, HttpMessage, HttpRequest, HttpResponse, post, web};
 use actix_web::cookie::Cookie;
 use actix_web::http::header;
 use crate::base::{file_openString, get_nowtime_str};
-use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptTranslate, ResultTranslate, Translate, TranslateGpt};
+use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptTranslate, ResultTranslate, TextToSpeach, Translate, TranslateGpt};
 use crate::cookie::{create_cookie_auth, create_cookie_auth_clear};
 use crate::google_module::GoogleModule;
 use crate::gpt_module::GptModule;
@@ -54,9 +54,9 @@ pub async fn m_outauth(state: web::Data<StateDb>)->Result<HttpResponse, MyError>
         .finish();
     Ok(respon)
 }
-#[get("/text")]
-pub async fn m_text_to_audio(state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
-    let bytes=GoogleModule::text_to_speach(state.google_module.clone(),"hej dåre".to_string()).await;
+#[post("/text")]
+pub async fn m_text_to_audio(text_:web::Json<TextToSpeach>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let bytes=GoogleModule::text_to_speach(state.google_module.clone(),text_.text.clone(),text_.name_lang.clone()).await;
     let mut res_bytes=Vec::new();
     match bytes {
         Ok(bytes) => {

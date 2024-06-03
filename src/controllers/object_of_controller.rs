@@ -24,6 +24,11 @@ pub struct CurrentLanguage{
     pub current_lang:String
 }
 #[derive(Deserialize,Serialize,Clone,Content)]
+pub struct TextToSpeach{
+    pub name_lang:String,
+    pub text:String
+}
+#[derive(Deserialize,Serialize,Clone,Content)]
 pub struct DeleteTranslate{
     pub id_record:i32
 }
