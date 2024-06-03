@@ -66,8 +66,8 @@ pub async fn m_text_to_audio(text_:web::Json<TextToSpeach>,state: web::Data<Stat
 
         }
     }
-    //let bytes=GptModule::text_to_audio(state.gpt_api.clone(),"Det finns en uppfattning om att vi föds med ett stort antal hjärnceller".to_string()).await?;
-    // let respon=HttpResponse::Found()
+    //let bytes=GptModule:text_to_audio(state.gpt_api.clone(),"Det finns en uppfattning om att vi föds med ett stort antal hjärnceller".to_string()).await?;
+    // let rspon=HttpResponse::Found()
     //     .insert_header((header::LOCATION, "/view/login"))
     //     .finish();
     Ok(HttpResponse::Ok()
