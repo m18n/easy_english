@@ -9,7 +9,7 @@ use crate::base::{file_openString, get_nowtime_str};
 use crate::controllers::object_of_controller::{CurrentLanguage, RequestResult};
 use crate::jwt::{Claims};
 use crate::models::{LanguageSupported, MyError, MysqlDB};
-use crate::render_temps::{CurrentLangTemplate, InitTemplate, LanguagesSupportedTemplate, TranslateHistoryItemTemplate, TranslateHistoryTemplate, TranslateTemplate};
+use crate::render_temps::{CurrentLangTemplate, DictionaryTemplate, InitTemplate, LanguagesSupportedTemplate, TranslateHistoryItemTemplate, TranslateHistoryTemplate, TranslateTemplate};
 use crate::StateDb;
 
 #[get("/login")]
@@ -46,6 +46,45 @@ pub async fn m_learn_main(req:HttpRequest,state: web::Data<StateDb>)->Result<Htt
     let template= CurrentLangTemplate {
         current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
         languages:cookie.user_dictionaries.clone(),
+    };
+    let tpl = Template::new(contents).unwrap();
+    Ok(HttpResponse::Ok().content_type("text/html").body(tpl.render(&template)))
+}
+#[get("/dictionary")]
+pub async fn m_dictionary_main(req:HttpRequest,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let mut cookie=Claims::new();
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        cookie=claims.clone();
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+    let response = HttpResponse::Found()
+        .insert_header((http::header::LOCATION,"/view/userspace/dictionary/p/1".to_string()))
+        .finish();
+    Ok(response)
+}
+#[get("/dictionary/p/{number_p}")]
+pub async fn m_dictionary_page_main(req:HttpRequest,state: web::Data<StateDb>,number_p:web::Path<(i32)>)->Result<HttpResponse, MyError>{
+    let mut number_p=number_p.into_inner();
+    number_p-=1;
+    let mut cookie=Claims::new();
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        cookie=claims.clone();
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+    let contents = file_openString("./easy_english_web/dictionary.html").await?;
+    let user_dict=cookie.user_dictionaries[cookie.current_lang_index].id;
+    let dictionary=MysqlDB::getDictionaries(state.mysql_db.clone(),user_dict,
+    number_p*10,10).await?;
+    let index_dump=MysqlDB::getIndexDamp(state.mysql_db.clone(),user_dict).await?;
+    let template= DictionaryTemplate {
+        current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
+        languages:cookie.user_dictionaries.clone(),
+        dictionary:dictionary,
+        index_dump:index_dump
     };
     let tpl = Template::new(contents).unwrap();
     Ok(HttpResponse::Ok().content_type("text/html").body(tpl.render(&template)))

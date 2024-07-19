@@ -1,13 +1,15 @@
+use std::ffi::c_long;
+use std::os::linux::raw::stat;
 use actix_web::{get, HttpMessage, HttpRequest, HttpResponse, post, web};
 use actix_web::cookie::Cookie;
 use actix_web::http::header;
 use crate::base::{file_openString, get_nowtime_str};
-use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptTranslate, ResultTranslate, TextToSpeach, Translate, TranslateGpt};
+use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptTranscript, ResultGptTranslate, ResultTranslate, Sentences, TextToSpeach, Translate, TranslateGpt};
 use crate::cookie::{create_cookie_auth, create_cookie_auth_clear};
 use crate::google_module::GoogleModule;
 use crate::gpt_module::GptModule;
 use crate::jwt::{Claims};
-use crate::models::{MyError, MysqlDB, Translated, TranslatedId};
+use crate::models::{Dictionary_Sentence, MyError, MysqlDB, SentenceId, Translated, TranslatedId};
 use crate::render_temps::CurrentLangTemplate;
 use crate::StateDb;
 use crate::translate_module::DeeplModule;
@@ -207,6 +209,89 @@ pub async fn m_save_translate(req:HttpRequest,translate_info:web::Json<Translate
 pub async fn m_delete_translated(req:HttpRequest,translate_info:web::Json<TranslatedId>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     if let Some(claims) = req.extensions().get::<Claims>(){
         MysqlDB::deleteTranslated(state.mysql_db.clone(),translate_info.into_inner(),claims.user_id).await?;
+        Ok(HttpResponse::Ok().json(RequestResult{status:true}))
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+
+}
+
+#[post("/dictionary/add")]
+pub async fn m_dictionary_addnewsentence(req:HttpRequest,sentences_info:web::Json<Sentences>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        let query=format!("Напиши дві транскрипції для цього {} речення \"{}\". \
+        Одна траксрипція це звичайна IPA а друга це адаптована під укараїнську мову.\
+        Відповідь надай в JSON. У форматі об'єкту:\
+        {{
+            \"ipa\":\"\",
+            \"ipa_ukr\":\"\",
+        }}
+        ",claims.user_dictionaries[claims.current_lang_index].language_name,sentences_info.sentence_into);
+        let user_dict=claims.user_dictionaries[claims.current_lang_index].id;
+        let translate:Result<ResultGptTranscript,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
+        match translate {
+            Ok(result) => {
+                let sentences_info=sentences_info.into_inner();
+                let dict=Dictionary_Sentence{id:0,user_dictionaries:user_dict,
+                    sentence_from:sentences_info.sentence_from,sentence_into:sentences_info.sentence_into,transcription_eng:result.ipa,transcription_ukr:result.ipa_ukr};
+                let index=MysqlDB::getIndexDamp(state.mysql_db.clone(),user_dict).await?;
+                MysqlDB::addDictionarySentence(state.mysql_db.clone(),dict).await?;
+                let sentence=MysqlDB::getDictionaries(state.mysql_db.clone(),user_dict,0,1).await?;
+                if index==-1{
+                    MysqlDB::addIndexDamp(state.mysql_db.clone(),user_dict,sentence[0].id).await?;
+                }
+
+            }
+            Err(error) => {
+
+            }
+        }
+
+
+        Ok(HttpResponse::Ok().json(RequestResult{status:true}))
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+
+}
+#[post("/dictionary/deleteitem")]
+pub async fn m_dictionary_deleteitem(req:HttpRequest,sentences_info:web::Json<SentenceId>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        let sentences_info=sentences_info.into_inner();
+        let user_dict=claims.user_dictionaries[claims.current_lang_index].id;
+        let index=MysqlDB::getIndexDamp(state.mysql_db.clone(),user_dict).await?;
+        if index==sentences_info.id{
+            let mut new_id=-1;
+            let next_id=MysqlDB::getNextRecordDamp(state.mysql_db.clone(),user_dict,sentences_info.id).await?;
+            if next_id==-1{
+                let befor_id=MysqlDB::getBeforRecordDamp(state.mysql_db.clone(),user_dict,sentences_info.id).await?;
+                if befor_id!=-1{
+                    new_id=befor_id;
+                }
+            }else{
+                new_id=next_id;
+            }
+            if new_id==-1{
+                MysqlDB::deleteIndexDamp(state.mysql_db.clone(),user_dict).await?;
+            }else{
+                MysqlDB::setIndexDamp(state.mysql_db.clone(), user_dict, new_id).await?;
+            }
+        }
+        MysqlDB::deleteDictionary(state.mysql_db.clone(),sentences_info.clone()).await?;
+        Ok(HttpResponse::Ok().json(RequestResult{status:true}))
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+
+}
+#[post("/dictionary/setindexdump")]
+pub async fn m_dictionary_set_indexdump(req:HttpRequest,sentences_info:web::Json<SentenceId>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        let user_dict=claims.user_dictionaries[claims.current_lang_index].id;
+        MysqlDB::setIndexDamp(state.mysql_db.clone(),user_dict,sentences_info.into_inner().id).await?;
         Ok(HttpResponse::Ok().json(RequestResult{status:true}))
     }else{
         let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());

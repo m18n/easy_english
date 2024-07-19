@@ -102,6 +102,8 @@ async fn main() -> std::io::Result<()> {
                         web::scope("/userspace")
                             .wrap(CheckUser)
                             .service(view_controller::m_learn_main)
+                            .service(view_controller::m_dictionary_main)
+                            .service(view_controller::m_dictionary_page_main)
                             .service(view_controller::m_translate_main)
                             .service(view_controller::m_translate_history)
                             .service(view_controller::m_translate_history_pagination)
@@ -132,6 +134,9 @@ async fn main() -> std::io::Result<()> {
                             .service(api_user_controller::m_save_translate)
                             .service(api_user_controller::m_delete_translated)
                             .service(api_user_controller::m_outauth)
+                            .service(api_user_controller::m_dictionary_addnewsentence)
+                            .service(api_user_controller::m_dictionary_deleteitem)
+                            .service(api_user_controller::m_dictionary_set_indexdump)
 
                     )
                     .service(

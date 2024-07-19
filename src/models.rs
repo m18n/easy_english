@@ -105,6 +105,19 @@ pub struct Translated{
 pub struct TranslatedId{
     pub id:i32,
 }
+#[derive(Debug, Serialize, Deserialize, FromRow,Clone,PartialEq,Content)]
+pub struct SentenceId{
+    pub id:i32,
+}
+#[derive(Debug, Serialize, Deserialize, FromRow,Clone,PartialEq,Content)]
+pub struct Dictionary_Sentence{
+    pub id:i32,
+    pub user_dictionaries:i32,
+    pub sentence_from:String,
+    pub sentence_into:String,
+    pub transcription_eng:String,
+    pub transcription_ukr:String
+}
 impl Translated {
     pub fn new()->Self{
         Self{id:-1,lang_from_translated_id:-1,lang_into_translated_id:-1,translated_text:String::new()
@@ -157,6 +170,7 @@ impl MysqlDB{
         let res= sqlx::query(query.as_str())
             .execute(&mysqlpool)
             .await.map_err(|e|{
+            println!("ERROR: {}",e);
             let str_error = format!("MYSQL|| {} error: {} \n", get_nowtime_str(),error_mess);
             MyError::SiteError(str_error)
         })?;
@@ -212,6 +226,7 @@ impl MysqlDB{
             })?;
         Ok(languages_supported)
     }
+
     pub async fn getLanguagesLevels(mysql_db_m:Arc<Mutex<MysqlDB>>)->Result<Vec<LanguagesLevels>, MyError>{
         let mysql_db=mysql_db_m.lock().await;
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
@@ -282,6 +297,21 @@ impl MysqlDB{
             })?;
         Ok(translated)
     }
+    pub async fn getDictionaries(mysql_db_m:Arc<Mutex<MysqlDB>>,dict_id:i32,start_element:i32,size_element:i32)->Result<Vec<Dictionary_Sentence>, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let query = format!("SELECT * FROM anki_sentences WHERE user_dictionaries={} ORDER BY id DESC LIMIT {} OFFSET {} ;"
+                        , dict_id, size_element, start_element);
+        let dict:Vec<Dictionary_Sentence>= sqlx::query_as(query.as_str())
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        Ok(dict)
+    }
 
     pub async fn getTranslatedItem(mysql_db_m:Arc<Mutex<MysqlDB>>,id_item:i32,user_id:i32)->Result<Translated, MyError>{
         let mysql_db=mysql_db_m.lock().await;
@@ -333,6 +363,88 @@ impl MysqlDB{
     pub async fn deleteTranslated(mysql_db_m:Arc<Mutex<MysqlDB>>,translated_info:TranslatedId,user_id:i32)->Result<bool, MyError>{
         let query=format!("DELETE FROM translation_history WHERE user_id={} AND id={}",user_id,translated_info.id);
         Self::executeSql(mysql_db_m.clone(),query,"delete translated".to_string()).await?;
+        Ok(true)
+    }
+    pub async fn deleteDictionary(mysql_db_m:Arc<Mutex<MysqlDB>>,sentence_id:SentenceId)->Result<bool, MyError>{
+        let query=format!("DELETE FROM anki_sentences WHERE id={}",sentence_id.id);
+        Self::executeSql(mysql_db_m.clone(),query,"Delete Dictionary".to_string()).await?;
+        Ok(true)
+    }
+    pub async fn setIndexDamp(mysql_db_m:Arc<Mutex<MysqlDB>>,user_dictionary:i32,index:i32)->Result<bool, MyError>{
+        let query=format!("UPDATE anki_dump SET sentences_id={} WHERE user_dictionaries={};",index,user_dictionary);
+        Self::executeSql(mysql_db_m.clone(),query,"set index dump".to_string()).await?;
+        Ok(true)
+    }
+    pub async fn deleteIndexDamp(mysql_db_m:Arc<Mutex<MysqlDB>>,user_dictionary:i32)->Result<bool, MyError>{
+        let query=format!("DELETE FROM anki_dump WHERE user_dictionaries={};",user_dictionary);
+        Self::executeSql(mysql_db_m.clone(),query,"delete index dump".to_string()).await?;
+        Ok(true)
+    }
+    pub async fn getNextRecordDamp(mysql_db_m:Arc<Mutex<MysqlDB>>,user_dictionary:i32,id_dump:i32)->Result<i32, MyError> {
+        let mysql_db = mysql_db_m.lock().await;
+        let mysqlpool = mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let query = format!("SELECT id FROM anki_sentences WHERE id<{} AND user_dictionaries={} ORDER BY id DESC LIMIT 1;", id_dump, user_dictionary);
+        let sentences_ids: Vec<i32> = sqlx::query_scalar(query.as_str())
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err(|e| {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        if sentences_ids.is_empty() {
+            Ok(-1)
+        } else {
+            Ok(sentences_ids[0])
+        }
+    }
+    pub async fn getBeforRecordDamp(mysql_db_m:Arc<Mutex<MysqlDB>>,user_dictionary:i32,id_dump:i32)->Result<i32, MyError> {
+        let mysql_db = mysql_db_m.lock().await;
+        let mysqlpool = mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let query = format!("SELECT id FROM anki_sentences WHERE id>{} AND user_dictionaries={} ORDER BY id DESC LIMIT 1;", id_dump, user_dictionary);
+        let sentences_ids: Vec<i32> = sqlx::query_scalar(query.as_str())
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err(|e| {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        if sentences_ids.is_empty() {
+            Ok(-1)
+        } else {
+            Ok(sentences_ids[0])
+        }
+    }
+    pub async fn getIndexDamp(mysql_db_m:Arc<Mutex<MysqlDB>>,user_dictionary:i32)->Result<i32, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
+        let query=format!("SELECT sentences_id FROM anki_dump WHERE user_dictionaries={};",user_dictionary);
+        let sentences_ids:Vec<i32>= sqlx::query_scalar(query.as_str())
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        if sentences_ids.is_empty(){
+            Ok(-1)
+        }else{
+            Ok(sentences_ids[0])
+        }
+    }
+    pub async fn addIndexDamp(mysql_db_m:Arc<Mutex<MysqlDB>>,user_dictionary:i32,sentence_id:i32)->Result<bool, MyError>{
+        let query=format!("INSERT INTO anki_dump (user_dictionaries,sentences_id)\
+        VALUES ({},{});",user_dictionary,sentence_id);
+        Self::executeSql(mysql_db_m.clone(),query,"add index dump".to_string()).await?;
+        Ok(true)
+    }
+    pub async fn addDictionarySentence(mysql_db_m:Arc<Mutex<MysqlDB>>,sentence_info:Dictionary_Sentence)->Result<bool, MyError>{
+        let query=format!("INSERT INTO anki_sentences (user_dictionaries,sentence_from,sentence_into,transcription_eng,transcription_ukr)\
+        VALUES ({},\"{}\",\"{}\",\"{}\",\"{}\")",sentence_info.user_dictionaries,sentence_info.sentence_from,sentence_info.sentence_into,sentence_info.transcription_eng,
+        sentence_info.transcription_ukr);
+        Self::executeSql(mysql_db_m.clone(),query,"delete dictionary".to_string()).await?;
         Ok(true)
     }
 }

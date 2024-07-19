@@ -1,6 +1,6 @@
 use ramhorns::{Template, Content};
 use serde::{Deserialize, Serialize};
-use crate::models::{LanguagesLevels, LanguageSupported, Translated, UserDictionary};
+use crate::models::{Dictionary_Sentence, LanguagesLevels, LanguageSupported, Translated, UserDictionary};
 
 #[derive(Content)]
 pub struct LanguagesSupportedTemplate {
@@ -19,6 +19,13 @@ pub struct ErrorTemplate {
 pub struct CurrentLangTemplate {
     pub current_lang:String,
     pub languages:Vec<UserDictionary>
+}
+#[derive(Content)]
+pub struct DictionaryTemplate {
+    pub current_lang:String,
+    pub languages:Vec<UserDictionary>,
+    pub dictionary:Vec<Dictionary_Sentence>,
+    pub index_dump:i32,
 }
 #[derive(Content)]
 pub struct TranslateHistoryTemplate {
