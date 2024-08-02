@@ -109,7 +109,7 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
             }
         }
         words_arr_str.push_str("]");
-        let front_str=format!("<h2>{}</h2>",sentences[i].sentence_from);
+        let front_str=format!(r#"<h2>{}</h2><span style="color:rgb(70, 70, 70);padding-bottom: 5px;padding-left: 5px;">{}</span>"#,sentences[i].sentence_from,sentences[i].sentence_from_context);
         let back=format!(r##"<div class="none select_base" value="0" onclick="chose_select(this);">
     </div>
     <div class="none item_base" value="0" onclick="chose_word(this);">
@@ -127,17 +127,27 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
             <button class="button_show button_style" onclick="show(this);">Показати</button>
         </div>
         <div class="transcript none">
+            <span>Твоє речення:</span>
+            <span class="ukr_sentence"></span>
+            <span class="space">Оцінка твого перекладу:</span>
+            <span class="score">0/100</span>
+            <span class="space">Відкориговане речення:</span>
+            <span class="correct_translate"></span>
+            <button class="button_style listen_button" onclick="listen_correct(this);">Прослухати</button>
+            <span class="space">Задумане речення:</span>
+            <span class="intended_sentence"></span>
             <span class="trans_eng">{}</span>
             <span class="trans_ukr">{}</span>
             <button class="button_style listen_button" onclick="listen(this);">Прослухати</button>
-            <span>Твоє речення:</span>
-            <span class="ukr_sentence"></span>
-            <span>Відкориговане речення:</span>
-            <span class="correct_translate"></span>
+
+
         </div>
 
     </div>
     <style>
+        .space{{
+            margin-top:4px;
+        }}
         .score{{
             color: rgb(6, 172, 6);
 
@@ -269,6 +279,45 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
                 [array[i], array[j]] = [array[j], array[i]];
             }}
         }}
+        function create_puzzle(){{
+             shuffleArray(commonWords);
+
+            let wordArray = [...allrightword];
+
+            // Переконатися, що не перевищуємо довжину commonWords
+            let limit = Math.min(wordArray.length * 2, commonWords.length);
+            for (let i = 0; i < limit; i++) {{
+                wordArray.push(commonWords[i]);
+            }}
+
+            shuffleArray(wordArray);
+            let select_grid = document.querySelector('.select_grid');
+            for (let i = 0; i < allrightword.length; i++) {{
+                let select = document.querySelector('.select_base');
+                let clonedBlock = select.cloneNode(true);
+                clonedBlock.classList.remove("select_base");
+                clonedBlock.classList.remove("none");
+                clonedBlock.classList.add("select_item");
+                if (i == 0) {{
+                    clonedBlock.classList.add("chose");
+                }}
+                select_grid.appendChild(clonedBlock);
+            }}
+            let item_grid = document.querySelector('.grid');
+            for (let i = 0; i < wordArray.length; i++) {{
+                let item = document.querySelector('.item_base');
+                let itemBlock = item.cloneNode(true);
+                itemBlock.classList.remove("item_base");
+                itemBlock.classList.remove("none");
+                itemBlock.classList.add("item_grid");
+                itemBlock.setAttribute("value", i + 1);
+                itemBlock.textContent = wordArray[i];
+                item_grid.appendChild(itemBlock);
+            }}
+
+
+            console.log(wordArray);
+         }}
         async function gpt_check(){{
 
             let url = "http://"+ip+"/api/text/check";
@@ -286,6 +335,7 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
                 let incl = document.querySelector('.input_client').textContent;
                 let data={{
                     sentence_from:ukr_sentences,
+                    sentence_from_context:ukr_sentences_context,
                     sentence_into: incl.slice(0, -6),
                     lang_name:name_lang
                 }};
@@ -296,10 +346,12 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
                 xhr.onload = function () {{
                     if (xhr.status === 200) {{
                         let obj=JSON.parse(xhr.responseText);
-                        //document.querySelector('.score').textContent=obj.assessment+"/100";
+                        document.querySelector('.score').textContent=obj.assessment+"/100";
                         //document.querySelector('.comment').textContent=obj.translation_comment;
                         document.querySelector('.correct_translate').textContent=obj.correct_translation;
-
+                        allrightword=obj.words_correct;
+                        commonWords=obj.words_puzzle;
+                        create_puzzle();
                     }} else {{
                         console.log("ERROR SEND");
                     }}
@@ -367,43 +419,7 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
         // Основна функція
         async function start() {{
             await getDataFromJsonbin();
-            shuffleArray(commonWords);
 
-            let wordArray = [...allrightword];
-
-            // Переконатися, що не перевищуємо довжину commonWords
-            let limit = Math.min(wordArray.length * 2, commonWords.length);
-            for (let i = 0; i < limit; i++) {{
-                wordArray.push(commonWords[i]);
-            }}
-
-            shuffleArray(wordArray);
-            let select_grid = document.querySelector('.select_grid');
-            for (let i = 0; i < allrightword.length; i++) {{
-                let select = document.querySelector('.select_base');
-                let clonedBlock = select.cloneNode(true);
-                clonedBlock.classList.remove("select_base");
-                clonedBlock.classList.remove("none");
-                clonedBlock.classList.add("select_item");
-                if (i == 0) {{
-                    clonedBlock.classList.add("chose");
-                }}
-                select_grid.appendChild(clonedBlock);
-            }}
-            let item_grid = document.querySelector('.grid');
-            for (let i = 0; i < wordArray.length; i++) {{
-                let item = document.querySelector('.item_base');
-                let itemBlock = item.cloneNode(true);
-                itemBlock.classList.remove("item_base");
-                itemBlock.classList.remove("none");
-                itemBlock.classList.add("item_grid");
-                itemBlock.setAttribute("value", i + 1);
-                itemBlock.textContent = wordArray[i];
-                item_grid.appendChild(itemBlock);
-            }}
-
-
-            console.log(wordArray);
         }}
 
         start();
@@ -464,6 +480,50 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
         }}
 
         var currentAudio = null;
+
+        function listen_correct(item) {{
+            let correct = document.querySelector('.correct_translate');
+            console.log("CORRECT:"+correct.textContent);
+            const requestData = {{
+                name_lang: name_lang,
+                text: correct.textContent
+            }};
+            console.log("REQ:" + JSON.stringify(requestData));
+            console.log("IP: "+ip);
+            fetch('http://' + ip + '/api/text', {{
+                method: 'POST',
+                headers: {{
+                    'Content-Type': 'application/json'
+                }},
+                body: JSON.stringify(requestData),
+                credentials: 'include' // Додає куки і аутентифікацію до запиту
+            }})
+                .then(response => {{
+                    if (!response.ok) {{
+                        throw new Error('Network response was not ok');
+                    }}
+                    return response.blob(); // Перетворення відповіді на Blob
+                }})
+                .then(blob => {{
+                    if (currentAudio) {{
+                        currentAudio.pause(); // Зупинити поточне аудіо
+                        currentAudio.src = ""; // Очистити джерело
+                    }}
+
+                    const url = URL.createObjectURL(blob); // Створення URL для Blob
+                    currentAudio = new Audio(url); // Створення аудіо елемента
+                    currentAudio.play(); // Відтворення аудіо
+
+                    currentAudio.onended = function () {{
+                        URL.revokeObjectURL(url); // Видалення URL для звільнення пам'яті
+                        console.log('Audio has been played and removed from memory');
+                        currentAudio = null; // Очистити посилання на поточний аудіоелемент
+                    }};
+                }})
+                .catch(error => {{
+                    console.log("ERROR AUDIO");
+                }});
+        }}
         function listen(item) {{
             const requestData = {{
                 name_lang: name_lang,
@@ -508,9 +568,11 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
 
         function success() {{
             let incl = document.querySelector('.input_client').textContent;
-            let sentence=incl.slice(0, -6);
+            let ukr_sentence=incl.slice(0, -6);
             let ukr = document.querySelector(".ukr_sentence");
-            ukr.textContent=sentence;
+            let intended=document.querySelector(".intended_sentence");
+            intended.textContent=sentences;
+            ukr.textContent=ukr_sentence;
             let trans = document.querySelector(".transcript");
             trans.classList.remove("none");
         }}

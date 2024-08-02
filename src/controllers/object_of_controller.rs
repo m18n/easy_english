@@ -80,6 +80,7 @@ pub struct ResultGptPuzzle{
 pub struct ResultAnkiGpt {
     pub assessment:i32,
     pub correct_translation:String,
+    pub words_correct:Vec<String>,
     pub words_puzzle:Vec<String>
 }
 #[derive(Deserialize,Serialize,Clone)]

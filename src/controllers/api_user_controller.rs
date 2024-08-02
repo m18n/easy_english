@@ -94,10 +94,10 @@ pub async fn m_text_check(text_:web::Json<SentencesLang>,state: web::Data<StateD
 Українське речення: "{}"
 Контекст українського речення: "{}"
 {} речення: "{}"
-Ти маєш надати 2 відповді.
-Перша це на скільки хорошиї переклад з українського в тому контексті на {} від 0 до 100, це звісно приблизно.
-Друге це відкорегований переклад мого речення на англійську мову.
-        Відповідь надай в JSON. У форматі об'єкту:\
+Ти маєш надати у відповді 2 параметри.
+Перший це "assessment" на скільки хорошиї переклад з українського в тому контексті на {} від 0 до 100, це звісно приблизно.
+Другий це "correct_translation" відкорегований переклад мого речення на англійську мову.
+        Відповідь надай в JSON. У форматі об'єкту:
         {{
             "assessment":,
             "correct_translation":"",
@@ -105,7 +105,7 @@ pub async fn m_text_check(text_:web::Json<SentencesLang>,state: web::Data<StateD
         "#,text.lang_name,text.sentence_from,text.sentence_from_context,text.lang_name,text.sentence_into,text.lang_name);
     let gpt_check:Result<ResultGptCheck,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
     let mut res_check=ResultGptCheck{assessment:-1,correct_translation:String::new()};
-    let mut res_anki=ResultAnkiGpt{assessment:-1,correct_translation:String::new(),words_puzzle:Vec::new()};
+    let mut res_anki=ResultAnkiGpt{assessment:-1,correct_translation:String::new(),words_puzzle:Vec::new(),words_correct:Vec::new()};
     match gpt_check {
         Ok(result) => {
             res_check=result;
@@ -114,17 +114,20 @@ pub async fn m_text_check(text_:web::Json<SentencesLang>,state: web::Data<StateD
             return Ok(Json(res_anki));
         }
     }
+    let words: Vec<String> = res_check.correct_translation.split_whitespace().map(|s| s.to_string())
+        .collect();
+    let size_words=words.len()*2;
     let query=format!(r#" Я тобі надам українське речення з контекстом та {}.
 Українське речення: "{}"
 Контекст українського речення: "{}"
 {} речення: "{}"
-Ти маєш надати 1 відповді.
-Я хочу збирати {} речення як пазли для цього мені потрібно щоб ти згенерував масив заплтувальних слів для {} речення.
-        Відповідь надай в JSON. У форматі об'єкту:\
+Ти маєш надати у відповдь 1 параметр.
+Перший — "words_puzzle", я хочу зібрати {} речень як пазли, для цього мені потрібно, щоб ти згенерував масив з {} слів, які б мене заплутали, тільки не згадуйте ті, які вже є в реченні для {} речень.
+        Відповідь надай в JSON. У форматі об'єкту:
         {{
             "words_puzzle":[""],
         }}
-        "#,text.lang_name,text.sentence_from,text.sentence_from_context,text.lang_name,text.sentence_into,text.lang_name,text.lang_name);
+        "#,text.lang_name,text.sentence_from,text.sentence_from_context,text.lang_name,res_check.correct_translation,text.lang_name,size_words,text.lang_name);
     let gpt_puzzle:Result<ResultGptPuzzle,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
     let mut res_puzzle=ResultGptPuzzle{words_puzzle:Vec::new()};
     match gpt_puzzle {
@@ -136,7 +139,7 @@ pub async fn m_text_check(text_:web::Json<SentencesLang>,state: web::Data<StateD
         }
     }
     res_anki=ResultAnkiGpt{assessment:res_check.assessment,correct_translation:res_check.correct_translation
-        ,words_puzzle:res_puzzle.words_puzzle};
+        ,words_puzzle:res_puzzle.words_puzzle,words_correct:words};
     Ok(Json(res_anki))
 }
 #[post("/translator/deepl/translate")]
