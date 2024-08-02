@@ -1,11 +1,17 @@
+use std::env;
 use std::ffi::c_long;
 use std::os::linux::raw::stat;
-use actix_web::{get, HttpMessage, HttpRequest, HttpResponse, post, web};
+use actix_files::NamedFile;
+use actix_web::{get, HttpMessage, HttpRequest, HttpResponse, post, Responder, web};
 use actix_web::cookie::Cookie;
 use actix_web::http::header;
+use async_std::path::PathBuf;
+use std::fs;
+use serde::de::Unexpected::Str;
 use crate::base::{file_openString, get_nowtime_str};
-use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptTranscript, ResultGptTranslate, ResultTranslate, Sentences, TextToSpeach, Translate, TranslateGpt};
+use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptCheck, ResultGptTranscript, ResultGptTranslate, ResultTranslate, Sentences, SentencesLang, TextToSpeach, Translate, TranslateGpt};
 use crate::cookie::{create_cookie_auth, create_cookie_auth_clear};
+use crate::generate_anki::generate_anki;
 use crate::google_module::GoogleModule;
 use crate::gpt_module::GptModule;
 use crate::jwt::{Claims};
@@ -56,6 +62,10 @@ pub async fn m_outauth(state: web::Data<StateDb>)->Result<HttpResponse, MyError>
         .finish();
     Ok(respon)
 }
+#[get("/check")]
+pub async fn m_check(state: web::Data<StateDb>)->Result<HttpResponse, MyError> {
+    Ok(HttpResponse::Ok().json(RequestResult{status:true}))
+}
 #[post("/text")]
 pub async fn m_text_to_audio(text_:web::Json<TextToSpeach>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let bytes=GoogleModule::text_to_speach(state.google_module.clone(),text_.text.clone(),text_.name_lang.clone()).await;
@@ -74,6 +84,35 @@ pub async fn m_text_to_audio(text_:web::Json<TextToSpeach>,state: web::Data<Stat
     //     .finish();
     Ok(HttpResponse::Ok()
         .content_type("audio/mpeg").body(web::Bytes::from(res_bytes)))
+
+}
+#[post("/text/check")]
+pub async fn m_text_check(text_:web::Json<SentencesLang>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+    let text=text_.into_inner();
+    let query=format!(r#" Я тобі надам українське речення та {}.
+Укр речення: "{}"
+{} речення: "{}"
+Ти маєш надати 3 оцінки.
+Перша це на скільки хорошиї переклад з українського на {} від 0 до 100, це звісно приблизно.
+Друге це коментар про якість перекладу, але не говори про кращий варіант, бо це є 3 оцінкою.
+Третє це кращий варіант перекладу.
+Всі пояснення пиши українською мовою.
+        Відповідь надай в JSON. У форматі об'єкту:\
+        {{
+            \"assessment\":,
+            \"translation_comment\":\"\",
+            \"correct_translation\":\"\",
+        }}
+        "#,text.lang_name,text.sentence_from,text.lang_name,text.sentence_into,text.lang_name);
+    let text:Result<ResultGptCheck,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
+    match text {
+        Ok(result) => {
+            Ok(HttpResponse::Ok().json(result))
+        }
+        Err(error) => {
+            Ok(HttpResponse::Ok().json(ResultGptCheck{assessment:-1,translation_comment:String::new(),correct_translation:String::new()}))
+        }
+    }
 
 }
 #[post("/translator/deepl/translate")]
@@ -293,6 +332,84 @@ pub async fn m_dictionary_set_indexdump(req:HttpRequest,sentences_info:web::Json
         let user_dict=claims.user_dictionaries[claims.current_lang_index].id;
         MysqlDB::setIndexDamp(state.mysql_db.clone(),user_dict,sentences_info.into_inner().id).await?;
         Ok(HttpResponse::Ok().json(RequestResult{status:true}))
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+
+}
+struct FileToDelete(PathBuf);
+
+impl Drop for FileToDelete {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+#[get("/dictionary/getfromindexdump")]
+pub async fn m_dictionary_get_fromindexdump(req:HttpRequest,state: web::Data<StateDb>)->Result<impl Responder, MyError>{
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        let user_dict=claims.user_dictionaries[claims.current_lang_index].id;
+        let lang_name=claims.user_dictionaries[claims.current_lang_index].language_name.clone();
+        let index_dump=MysqlDB::getIndexDamp(state.mysql_db.clone(),user_dict).await?;
+        let sentences=MysqlDB::getDictionariesDump(state.mysql_db.clone(),user_dict,index_dump).await?;
+        let string=generate_anki(user_dict,sentences,lang_name);
+        let exe_path = env::current_exe().unwrap();
+        let exe_dir = exe_path.parent().unwrap();
+        let file_path = std::path::PathBuf::from(env!("HOME"))
+            .as_path()
+            .join(exe_dir)
+            .join(string.clone());
+
+        let file = actix_files::NamedFile::open_async(file_path.clone()).await.unwrap();
+        let mut response = file.into_response(&req);
+
+        response.headers_mut().insert(
+            header::CONTENT_DISPOSITION,
+            header::HeaderValue::from_str(format!("attachment; filename=\"{}\"", string).as_str()).unwrap()
+        );
+
+        // Додати розширення для зберігання шляху до файлу
+        response.extensions_mut().insert(FileToDelete(PathBuf::from(file_path)));
+        let first=MysqlDB::getDictionaries(state.mysql_db.clone(),user_dict,0,1).await?;
+        MysqlDB::setIndexDamp(state.mysql_db.clone(),user_dict,first[0].id).await?;
+        Ok(response)
+
+
+    }else{
+        let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
+        return Err(MyError::SiteError(str_error));
+    }
+
+}
+#[get("/dictionary/getdump")]
+pub async fn m_dictionary_get_dump(req:HttpRequest,state: web::Data<StateDb>)->Result<impl Responder, MyError>{
+    if let Some(claims) = req.extensions().get::<Claims>(){
+        let user_dict=claims.user_dictionaries[claims.current_lang_index].id;
+        let lang_name=claims.user_dictionaries[claims.current_lang_index].language_name.clone();
+        let sentences=MysqlDB::getDictionaries(state.mysql_db.clone(),user_dict,0,0).await?;
+        let string=generate_anki(user_dict,sentences,lang_name);
+        let exe_path = env::current_exe().unwrap();
+        let exe_dir = exe_path.parent().unwrap();
+        let file_path = std::path::PathBuf::from(env!("HOME"))
+            .as_path()
+            .join(exe_dir)
+            .join(string.clone());
+
+        let file = actix_files::NamedFile::open_async(file_path.clone()).await.unwrap();
+        let mut response = file.into_response(&req);
+
+        response.headers_mut().insert(
+            header::CONTENT_DISPOSITION,
+            header::HeaderValue::from_str(format!("attachment; filename=\"{}\"", string).as_str()).unwrap()
+        );
+
+        // Додати розширення для зберігання шляху до файлу
+        response.extensions_mut().insert(FileToDelete(PathBuf::from(file_path)));
+        let first=MysqlDB::getDictionaries(state.mysql_db.clone(),user_dict,0,1).await?;
+        MysqlDB::setIndexDamp(state.mysql_db.clone(),user_dict,first[0].id).await?;
+        Ok(response)
+
+
     }else{
         let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
         return Err(MyError::SiteError(str_error));

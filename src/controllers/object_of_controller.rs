@@ -29,6 +29,12 @@ pub struct Sentences{
     pub sentence_into:String,
 }
 #[derive(Deserialize,Serialize,Clone,Content)]
+pub struct SentencesLang{
+    pub sentence_from:String,
+    pub sentence_into:String,
+    pub lang_name:String,
+}
+#[derive(Deserialize,Serialize,Clone,Content)]
 pub struct TextToSpeach{
     pub name_lang:String,
     pub text:String
@@ -58,6 +64,12 @@ pub struct ResultTranslate{
 pub struct ResultGptTranslate{
     pub sentence:String,
     pub explanation:String,
+}
+#[derive(Deserialize,Serialize,Clone)]
+pub struct ResultGptCheck{
+    pub assessment:i32,
+    pub translation_comment:String,
+    pub correct_translation:String
 }
 #[derive(Deserialize,Serialize,Clone)]
 pub struct ResultGptTranscript{

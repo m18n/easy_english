@@ -16,7 +16,7 @@ futures-util = "0.3.30"
 serde = "1.0.197"
 serde_json = "1.0.114"
 async-std = "1.12.0"
-sqlx = { version = "0.7.4", features = ["mysql", "runtime-tokio-rustls"] }
+
 lazy_static = "1.4.0"
 thiserror = "1.0.60"
 chrono = "0.4.38"
@@ -29,5 +29,9 @@ async-openai = "0.21.0"
 bytes = "1.6.0"
 reqwest = "0.11.27"
 base64 = "0.21.7"
+genanki-rs = "0.4.0"
+sqlx = { version = "0.6.1", features = ["mysql", "runtime-tokio-rustls"] }
+
 [build-dependencies]
 walkdir = "2.3"
+    

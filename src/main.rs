@@ -15,6 +15,7 @@ mod gpt_module;
 mod translate_module;
 mod google_module;
 mod cookie;
+mod generate_anki;
 
 use std::env;
 use std::sync::Arc;
@@ -120,6 +121,8 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/api")
                     .wrap(CheckDbApi)
                     .service(api_user_controller::m_text_to_audio)
+                    .service(api_user_controller::m_text_check)
+                    .service(api_user_controller::m_check)
                     .service(api_controller::m_auth)
                     .service(
                         web::scope("/userspace")
@@ -137,7 +140,8 @@ async fn main() -> std::io::Result<()> {
                             .service(api_user_controller::m_dictionary_addnewsentence)
                             .service(api_user_controller::m_dictionary_deleteitem)
                             .service(api_user_controller::m_dictionary_set_indexdump)
-
+                            .service(api_user_controller::m_dictionary_get_fromindexdump)
+                            .service(api_user_controller::m_dictionary_get_dump)
                     )
                     .service(
                         web::scope("/userstart")

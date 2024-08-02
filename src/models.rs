@@ -301,8 +301,21 @@ impl MysqlDB{
         let mysql_db=mysql_db_m.lock().await;
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
         drop(mysql_db);
-        let query = format!("SELECT * FROM anki_sentences WHERE user_dictionaries={} ORDER BY id DESC LIMIT {} OFFSET {} ;"
-                        , dict_id, size_element, start_element);
+        let mut query=String::new();
+        if size_element==0&&start_element==0{
+            query = format!("SELECT * FROM anki_sentences WHERE user_dictionaries={} ORDER BY id DESC;"
+                            , dict_id);
+        }
+        else if size_element==0{
+            query = format!("SELECT * FROM anki_sentences WHERE user_dictionaries={} ORDER BY id DESC OFFSET {};"
+                                , dict_id,start_element);
+        }else if start_element==0{
+            query = format!("SELECT * FROM anki_sentences WHERE user_dictionaries={} ORDER BY id DESC LIMIT {};"
+                            , dict_id,size_element);
+        } else {
+            query = format!("SELECT * FROM anki_sentences WHERE user_dictionaries={} ORDER BY id DESC LIMIT {} OFFSET {} ;"
+                                , dict_id, size_element, start_element);
+        }
         let dict:Vec<Dictionary_Sentence>= sqlx::query_as(query.as_str())
             .fetch_all(&mysqlpool)
             .await
@@ -312,7 +325,22 @@ impl MysqlDB{
             })?;
         Ok(dict)
     }
+    pub async fn getDictionariesDump(mysql_db_m:Arc<Mutex<MysqlDB>>,dict_id:i32,index_dump:i32)->Result<Vec<Dictionary_Sentence>, MyError>{
+        let mysql_db=mysql_db_m.lock().await;
+        let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
+        drop(mysql_db);
 
+        let query = format!("SELECT * FROM anki_sentences WHERE user_dictionaries={} AND id>{} ORDER BY id ASC;"
+                        , dict_id, index_dump);
+        let dict:Vec<Dictionary_Sentence>= sqlx::query_as(query.as_str())
+            .fetch_all(&mysqlpool)
+            .await
+            .map_err( |e|  {
+                let str_error = format!("MYSQL|| {} error: {}\n", get_nowtime_str(), e.to_string());
+                MyError::SiteError(str_error)
+            })?;
+        Ok(dict)
+    }
     pub async fn getTranslatedItem(mysql_db_m:Arc<Mutex<MysqlDB>>,id_item:i32,user_id:i32)->Result<Translated, MyError>{
         let mysql_db=mysql_db_m.lock().await;
         let mysqlpool=mysql_db.mysql.as_ref().unwrap().clone();
@@ -402,7 +430,7 @@ impl MysqlDB{
         let mysql_db = mysql_db_m.lock().await;
         let mysqlpool = mysql_db.mysql.as_ref().unwrap().clone();
         drop(mysql_db);
-        let query = format!("SELECT id FROM anki_sentences WHERE id>{} AND user_dictionaries={} ORDER BY id DESC LIMIT 1;", id_dump, user_dictionary);
+        let query = format!("SELECT id FROM anki_sentences WHERE id>{} AND user_dictionaries={} ORDER BY id ASC LIMIT 1;", id_dump, user_dictionary);
         let sentences_ids: Vec<i32> = sqlx::query_scalar(query.as_str())
             .fetch_all(&mysqlpool)
             .await
