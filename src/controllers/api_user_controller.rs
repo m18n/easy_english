@@ -7,9 +7,10 @@ use actix_web::cookie::Cookie;
 use actix_web::http::header;
 use async_std::path::PathBuf;
 use std::fs;
+use actix_web::web::Json;
 use serde::de::Unexpected::Str;
 use crate::base::{file_openString, get_nowtime_str};
-use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultGptCheck, ResultGptTranscript, ResultGptTranslate, ResultTranslate, Sentences, SentencesLang, TextToSpeach, Translate, TranslateGpt};
+use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultAnkiGpt, ResultGptCheck, ResultGptPuzzle, ResultGptTranscript, ResultGptTranslate, ResultTranslate, Sentences, SentencesLang, TextToSpeach, Translate, TranslateGpt};
 use crate::cookie::{create_cookie_auth, create_cookie_auth_clear};
 use crate::generate_anki::generate_anki;
 use crate::google_module::GoogleModule;
@@ -87,33 +88,56 @@ pub async fn m_text_to_audio(text_:web::Json<TextToSpeach>,state: web::Data<Stat
 
 }
 #[post("/text/check")]
-pub async fn m_text_check(text_:web::Json<SentencesLang>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+pub async fn m_text_check(text_:web::Json<SentencesLang>,state: web::Data<StateDb>)->Result<Json<ResultAnkiGpt>, MyError>{
     let text=text_.into_inner();
-    let query=format!(r#" Я тобі надам українське речення та {}.
-Укр речення: "{}"
+    let query=format!(r#" Я тобі надам українське речення з контекстом та {}.
+Українське речення: "{}"
+Контекст українського речення: "{}"
 {} речення: "{}"
-Ти маєш надати 3 оцінки.
-Перша це на скільки хорошиї переклад з українського на {} від 0 до 100, це звісно приблизно.
-Друге це коментар про якість перекладу, але не говори про кращий варіант, бо це є 3 оцінкою.
-Третє це кращий варіант перекладу.
-Всі пояснення пиши українською мовою.
+Ти маєш надати 2 відповді.
+Перша це на скільки хорошиї переклад з українського в тому контексті на {} від 0 до 100, це звісно приблизно.
+Друге це відкорегований переклад мого речення на англійську мову.
         Відповідь надай в JSON. У форматі об'єкту:\
         {{
-            \"assessment\":,
-            \"translation_comment\":\"\",
-            \"correct_translation\":\"\",
+            "assessment":,
+            "correct_translation":"",
         }}
-        "#,text.lang_name,text.sentence_from,text.lang_name,text.sentence_into,text.lang_name);
-    let text:Result<ResultGptCheck,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
-    match text {
+        "#,text.lang_name,text.sentence_from,text.sentence_from_context,text.lang_name,text.sentence_into,text.lang_name);
+    let gpt_check:Result<ResultGptCheck,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
+    let mut res_check=ResultGptCheck{assessment:-1,correct_translation:String::new()};
+    let mut res_anki=ResultAnkiGpt{assessment:-1,correct_translation:String::new(),words_puzzle:Vec::new()};
+    match gpt_check {
         Ok(result) => {
-            Ok(HttpResponse::Ok().json(result))
+            res_check=result;
         }
         Err(error) => {
-            Ok(HttpResponse::Ok().json(ResultGptCheck{assessment:-1,translation_comment:String::new(),correct_translation:String::new()}))
+            return Ok(Json(res_anki));
         }
     }
-
+    let query=format!(r#" Я тобі надам українське речення з контекстом та {}.
+Українське речення: "{}"
+Контекст українського речення: "{}"
+{} речення: "{}"
+Ти маєш надати 1 відповді.
+Я хочу збирати {} речення як пазли для цього мені потрібно щоб ти згенерував масив заплтувальних слів для {} речення.
+        Відповідь надай в JSON. У форматі об'єкту:\
+        {{
+            "words_puzzle":[""],
+        }}
+        "#,text.lang_name,text.sentence_from,text.sentence_from_context,text.lang_name,text.sentence_into,text.lang_name,text.lang_name);
+    let gpt_puzzle:Result<ResultGptPuzzle,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
+    let mut res_puzzle=ResultGptPuzzle{words_puzzle:Vec::new()};
+    match gpt_puzzle {
+        Ok(result) => {
+            res_puzzle=result;
+        }
+        Err(error) => {
+            return Ok(Json(res_anki));
+        }
+    }
+    res_anki=ResultAnkiGpt{assessment:res_check.assessment,correct_translation:res_check.correct_translation
+        ,words_puzzle:res_puzzle.words_puzzle};
+    Ok(Json(res_anki))
 }
 #[post("/translator/deepl/translate")]
 pub async fn m_deepl_translate(req:HttpRequest,translate_info:web::Json<Translate>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
