@@ -26,6 +26,7 @@ pub struct CurrentLanguage{
 #[derive(Deserialize,Serialize,Clone,Content)]
 pub struct Sentences{
     pub sentence_from:String,
+    pub sentence_from_context:String,
     pub sentence_into:String,
 }
 #[derive(Deserialize,Serialize,Clone,Content)]

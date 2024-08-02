@@ -114,6 +114,7 @@ pub struct Dictionary_Sentence{
     pub id:i32,
     pub user_dictionaries:i32,
     pub sentence_from:String,
+    pub sentence_from_context:String,
     pub sentence_into:String,
     pub transcription_eng:String,
     pub transcription_ukr:String
@@ -469,8 +470,8 @@ impl MysqlDB{
         Ok(true)
     }
     pub async fn addDictionarySentence(mysql_db_m:Arc<Mutex<MysqlDB>>,sentence_info:Dictionary_Sentence)->Result<bool, MyError>{
-        let query=format!("INSERT INTO anki_sentences (user_dictionaries,sentence_from,sentence_into,transcription_eng,transcription_ukr)\
-        VALUES ({},\"{}\",\"{}\",\"{}\",\"{}\")",sentence_info.user_dictionaries,sentence_info.sentence_from,sentence_info.sentence_into,sentence_info.transcription_eng,
+        let query=format!("INSERT INTO anki_sentences (user_dictionaries,sentence_from,sentence_from_context,sentence_into,transcription_eng,transcription_ukr)\
+        VALUES ({},\"{}\",\"{}\",\"{}\",\"{}\",\"{}\")",sentence_info.user_dictionaries,sentence_info.sentence_from,sentence_info.sentence_from_context,sentence_info.sentence_into,sentence_info.transcription_eng,
         sentence_info.transcription_ukr);
         Self::executeSql(mysql_db_m.clone(),query,"delete dictionary".to_string()).await?;
         Ok(true)

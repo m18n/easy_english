@@ -255,6 +255,7 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
     <script>
         var name_lang="{}";
         var ukr_sentences="{}";
+        var ukr_sentences_context="{}";
         var sentences="{}";
         var allrightword = {};
         var commonWords = [
@@ -513,7 +514,7 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
             let trans = document.querySelector(".transcript");
             trans.classList.remove("none");
         }}
-        </script>"##,sentences[i].transcription_eng,sentences[i].transcription_ukr,lang_name,sentences[i].sentence_from,sentences[i].sentence_into
+        </script>"##,sentences[i].transcription_eng,sentences[i].transcription_ukr,lang_name,sentences[i].sentence_from,sentences[i].sentence_from_context,sentences[i].sentence_into
                          ,words_arr_str,get_language_world(lang_name.clone()).unwrap());
         let note=Note::new(model.clone(),vec![front_str.as_str(),back.as_str(),"Space"]).unwrap();
         deck.add_note(note);

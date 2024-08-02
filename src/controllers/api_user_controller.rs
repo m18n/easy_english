@@ -297,7 +297,7 @@ pub async fn m_dictionary_addnewsentence(req:HttpRequest,sentences_info:web::Jso
             Ok(result) => {
                 let sentences_info=sentences_info.into_inner();
                 let dict=Dictionary_Sentence{id:0,user_dictionaries:user_dict,
-                    sentence_from:sentences_info.sentence_from,sentence_into:sentences_info.sentence_into,transcription_eng:result.ipa,transcription_ukr:result.ipa_ukr};
+                    sentence_from:sentences_info.sentence_from,sentence_from_context:sentences_info.sentence_from_context,sentence_into:sentences_info.sentence_into,transcription_eng:result.ipa,transcription_ukr:result.ipa_ukr};
                 let index=MysqlDB::getIndexDamp(state.mysql_db.clone(),user_dict).await?;
                 MysqlDB::addDictionarySentence(state.mysql_db.clone(),dict).await?;
                 let sentence=MysqlDB::getDictionaries(state.mysql_db.clone(),user_dict,0,1).await?;
