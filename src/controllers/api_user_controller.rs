@@ -1,33 +1,26 @@
+//controller for user with auth
 use std::env;
-use std::ffi::c_long;
-use std::os::linux::raw::stat;
-use actix_files::NamedFile;
 use actix_web::{get, HttpMessage, HttpRequest, HttpResponse, post, Responder, web};
-use actix_web::cookie::Cookie;
 use actix_web::http::header;
 use async_std::path::PathBuf;
 use std::fs;
-use actix_web::web::Json;
-use serde::de::Unexpected::Str;
-use crate::base::{file_openString, get_nowtime_str};
-use crate::controllers::object_of_controller::{CurrentLanguage, DictionariesInfo, RequestResult, ResultAnkiGpt, ResultGptCheck, ResultGptPuzzle, ResultGptTranscript, ResultGptTranslate, ResultTranslate, Sentences, SentencesLang, TextToSpeach, Translate, TranslateGpt};
+use crate::base::{get_nowtime_str};
+use crate::controllers::object_of_controller::{CurrentLanguage, RequestResult, ResultGptTranscript, ResultGptTranslate, ResultTranslate, Sentences, Translate, TranslateGpt};
 use crate::cookie::{create_cookie_auth, create_cookie_auth_clear};
 use crate::generate_anki::generate_anki;
-use crate::google_module::GoogleModule;
 use crate::gpt_module::GptModule;
 use crate::jwt::{Claims};
 use crate::models::{Dictionary_Sentence, MyError, MysqlDB, SentenceId, Translated, TranslatedId};
-use crate::render_temps::CurrentLangTemplate;
 use crate::StateDb;
 use crate::translate_module::DeeplModule;
-
+// url controller: /api/userspace/***
 #[get("/test")]
 pub async fn m_test()->Result<HttpResponse, MyError>{
 
     Ok(HttpResponse::Ok().content_type("text/html").body("Hello"))
 }
-#[post("/setcurrentlang")]
-pub async fn m_set_dictionaries(req:HttpRequest,current_lang:web::Json<CurrentLanguage>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
+#[post("/setCurrentDictionary")]
+pub async fn m_set_current_dictionary(req:HttpRequest,current_lang:web::Json<CurrentLanguage>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     if let Some(claims) = req.extensions().get::<Claims>(){
         let mut new_index:usize=0;
         let result = claims.user_dictionaries.iter().enumerate().find(|(_, &ref x)| x.language_name==current_lang.current_lang);
@@ -63,93 +56,11 @@ pub async fn m_outauth(state: web::Data<StateDb>)->Result<HttpResponse, MyError>
         .finish();
     Ok(respon)
 }
-#[get("/check")]
-pub async fn m_check(state: web::Data<StateDb>)->Result<HttpResponse, MyError> {
-    Ok(HttpResponse::Ok().json(RequestResult{status:true}))
-}
-#[post("/text")]
-pub async fn m_text_to_audio(text_:web::Json<TextToSpeach>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
-    let bytes=GoogleModule::text_to_speach(state.google_module.clone(),text_.text.clone(),text_.name_lang.clone()).await;
-    let mut res_bytes=Vec::new();
-    match bytes {
-        Ok(bytes) => {
-            res_bytes=bytes;
-        }
-        Err(e) => {
-
-        }
-    }
-    //let bytes=GptModule:text_to_audio(state.gpt_api.clone(),"Det finns en uppfattning om att vi föds med ett stort antal hjärnceller".to_string()).await?;
-    // let rspon=HttpResponse::Found()
-    //     .insert_header((header::LOCATION, "/view/login"))
-    //     .finish();
-    Ok(HttpResponse::Ok()
-        .content_type("audio/mpeg").body(web::Bytes::from(res_bytes)))
-
-}
-#[post("/text/check")]
-pub async fn m_text_check(text_:web::Json<SentencesLang>,state: web::Data<StateDb>)->Result<Json<ResultAnkiGpt>, MyError>{
-    let text=text_.into_inner();
-    let query=format!(r#" Я тобі надам українське речення з контекстом та {}.
-Українське речення: "{}"
-Контекст українського речення: "{}"
-{} речення: "{}"
-Ти маєш надати у відповді 2 параметри.
-Перший це "assessment" на скільки хорошиї переклад з українського в тому контексті на {} від 0 до 100, це звісно приблизно.
-Другий це "correct_translation" відкорегований переклад мого речення на англійську мову.
-        Відповідь надай в JSON. У форматі об'єкту:
-        {{
-            "assessment":,
-            "correct_translation":"",
-        }}
-        "#,text.lang_name,text.sentence_from,text.sentence_from_context,text.lang_name,text.sentence_into,text.lang_name);
-    let gpt_check:Result<ResultGptCheck,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
-    let mut res_check=ResultGptCheck{assessment:-1,correct_translation:String::new()};
-    let mut res_anki=ResultAnkiGpt{assessment:-1,correct_translation:String::new(),words_puzzle:Vec::new(),words_correct:Vec::new()};
-    match gpt_check {
-        Ok(result) => {
-            res_check=result;
-        }
-        Err(error) => {
-            return Ok(Json(res_anki));
-        }
-    }
-    let words: Vec<String> = res_check.correct_translation.split_whitespace().map(|s| s.to_string())
-        .collect();
-    let size_words=words.len()*2;
-    let query=format!(r#" Я тобі надам українське речення з контекстом та {}.
-Українське речення: "{}"
-Контекст українського речення: "{}"
-{} речення: "{}"
-Ти маєш надати у відповдь 1 параметр.
-Перший — "words_puzzle", я хочу зібрати {} речень як пазли, для цього мені потрібно, щоб ти згенерував масив з {} слів, які б мене заплутали, тільки не згадуйте ті, які вже є в реченні для {} речень.
-        Відповідь надай в JSON. У форматі об'єкту:
-        {{
-            "words_puzzle":[""],
-        }}
-        "#,text.lang_name,text.sentence_from,text.sentence_from_context,text.lang_name,res_check.correct_translation,text.lang_name,size_words,text.lang_name);
-    let gpt_puzzle:Result<ResultGptPuzzle,MyError>=GptModule::send(state.gpt_api.clone(),query).await;
-    let mut res_puzzle=ResultGptPuzzle{words_puzzle:Vec::new()};
-    match gpt_puzzle {
-        Ok(result) => {
-            res_puzzle=result;
-        }
-        Err(error) => {
-            return Ok(Json(res_anki));
-        }
-    }
-    res_anki=ResultAnkiGpt{assessment:res_check.assessment,correct_translation:res_check.correct_translation
-        ,words_puzzle:res_puzzle.words_puzzle,words_correct:words};
-    Ok(Json(res_anki))
-}
 #[post("/translator/deepl/translate")]
 pub async fn m_deepl_translate(req:HttpRequest,translate_info:web::Json<Translate>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let text_=DeeplModule::translate(state.deepl_api.clone(),translate_info.from_lang.clone(),translate_info.into_lang.clone(),translate_info.text.clone()).await?;
     Ok(HttpResponse::Ok().json(ResultTranslate{text:text_}))
 }
-// /translator/gpt/full/translate
-// /translator/gpt/short/translate
-
 #[post("/translator/gpt/full/speak/translate")]
 pub async fn m_gpt_full_speak_translate(req:HttpRequest,translate_info:web::Json<TranslateGpt>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let query=format!("Будь вчителем {} мови.

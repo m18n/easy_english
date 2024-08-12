@@ -1,15 +1,14 @@
+//controller for settings web server
 use std::env;
 use actix_web::{get, HttpResponse, Responder, web};
 use actix_web::http::header;
 use ramhorns::Template;
 use crate::base::file_openString;
 use crate::globals::LOGS_DB_ERROR;
-use crate::gpt_module::GptModule;
-use crate::models::{MyError, MysqlDB};
-use crate::render_temps::{ErrorTemplate, TranslateTemplate};
+use crate::models::{MyError};
+use crate::render_temps::{ErrorTemplate};
 use crate::StateDb;
-use crate::translate_module::DeeplModule;
-
+// url controller: /settings/***
 #[get("/error")]
 pub async fn m_settings_error()->Result<HttpResponse, MyError>{
     let contents = file_openString("./easy_english_web/error_web_site.html").await?;

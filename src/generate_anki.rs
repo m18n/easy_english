@@ -318,9 +318,9 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
 
             console.log(wordArray);
          }}
-        async function gpt_check(){{
+        async function check_answer(){{
 
-            let url = "http://"+ip+"/api/text/check";
+            let url = "http://"+ip+"/api/service/checkAnswer";
             console.log("URL: "+url);
             var xhr = new XMLHttpRequest();
 
@@ -390,7 +390,7 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
                         let data=JSON.parse(xhr.responseText);
                         data=data.record;
                         ip = data["ip"];
-                        gpt_check();
+                        check_answer();
                     }} else {{
                         console.log("ERROR SEND");
                     }}
@@ -490,7 +490,7 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
             }};
             console.log("REQ:" + JSON.stringify(requestData));
             console.log("IP: "+ip);
-            fetch('http://' + ip + '/api/text', {{
+            fetch('http://' + ip + '/api/service/textToAudio', {{
                 method: 'POST',
                 headers: {{
                     'Content-Type': 'application/json'
@@ -531,7 +531,7 @@ pub fn generate_anki(user_dict:i32, sentences: Vec<Dictionary_Sentence>, lang_na
             }};
             console.log("REQ:" + JSON.stringify(requestData));
             console.log("IP: "+ip);
-            fetch('http://' + ip + '/api/text', {{
+            fetch('http://' + ip + '/api/service/textToAudio', {{
                 method: 'POST',
                 headers: {{
                     'Content-Type': 'application/json'

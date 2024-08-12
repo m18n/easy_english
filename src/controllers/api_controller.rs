@@ -1,14 +1,10 @@
-use std::ffi::c_long;
-use actix_web::{get, HttpResponse, post, web};
-use actix_web::cookie::Cookie;
-use crate::base::file_openString;
+use actix_web::{HttpResponse, post, web};
 use crate::controllers::object_of_controller::{AuthInfo, RequestResult};
 use crate::cookie::create_cookie_auth;
 use crate::jwt::{Claims};
 use crate::models::{MyError, MysqlDB};
 use crate::StateDb;
-
-// URL=/api/*
+// url controller: /api/***
 #[post("/auth")]
 pub async fn m_auth(auth_info:web::Json<AuthInfo>,state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let auth_obj=auth_info.into_inner();

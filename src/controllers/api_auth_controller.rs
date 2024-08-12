@@ -1,12 +1,11 @@
 use actix_web::{get, HttpMessage, HttpRequest, HttpResponse, post, web};
-use actix_web::cookie::Cookie;
-use crate::base::{file_openString, get_nowtime_str};
-use crate::controllers::object_of_controller::{AuthInfo,  DictionariesInfo, RequestResult};
+use crate::base::{get_nowtime_str};
+use crate::controllers::object_of_controller::{DictionariesInfo, RequestResult};
 use crate::cookie::create_cookie_auth;
 use crate::jwt::{Claims};
 use crate::models::{MyError, MysqlDB};
 use crate::StateDb;
-
+// url controller: /api/userstart/***
 #[get("/test")]
 pub async fn m_test()->Result<HttpResponse, MyError>{
 
