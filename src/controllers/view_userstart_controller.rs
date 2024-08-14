@@ -10,7 +10,7 @@ use crate::StateDb;
 pub async fn m_init_dictionaries(state: web::Data<StateDb>)->Result<HttpResponse, MyError>{
     let dictionaries=MysqlDB::getLanguages(state.mysql_db.clone()).await?;
     let lang_levels=MysqlDB::getLanguagesLevels(state.mysql_db.clone()).await?;
-    let contents = file_openString("./easy_english_web/init_dictionaries.html").await?;
+    let contents = file_openString("./easy_lang_web/init_dictionaries.html").await?;
     let template=InitTemplate{
         languages:dictionaries,
         languages_levels:lang_levels

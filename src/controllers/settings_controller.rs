@@ -11,7 +11,7 @@ use crate::StateDb;
 // url controller: /settings/***
 #[get("/error")]
 pub async fn m_settings_error()->Result<HttpResponse, MyError>{
-    let contents = file_openString("./easy_english_web/error_web_site.html").await?;
+    let contents = file_openString("./easy_lang_web/error_web_site.html").await?;
     let logs=LOGS_DB_ERROR.lock().await;
     let template=ErrorTemplate{
         error:logs.clone()

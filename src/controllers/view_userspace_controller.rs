@@ -17,7 +17,7 @@ pub async fn m_learn_main(req:HttpRequest,state: web::Data<StateDb>)->Result<Htt
         let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
         return Err(MyError::SiteError(str_error));
     }
-    let contents = file_openString("./easy_english_web/learn_lang_main.html").await?;
+    let contents = file_openString("./easy_lang_web/learn_lang_main.html").await?;
     let template= CurrentLangTemplate {
         current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
         languages:cookie.user_dictionaries.clone(),
@@ -50,7 +50,7 @@ pub async fn m_dictionary_page_main(req:HttpRequest,state: web::Data<StateDb>,nu
         let str_error = format!("LOGIC|| {} error: IT IS NOT SITE WITH AUTH\n", get_nowtime_str());
         return Err(MyError::SiteError(str_error));
     }
-    let contents = file_openString("./easy_english_web/dictionary.html").await?;
+    let contents = file_openString("./easy_lang_web/dictionary.html").await?;
     let user_dict=cookie.user_dictionaries[cookie.current_lang_index].id;
     let dictionary=MysqlDB::getDictionaries(state.mysql_db.clone(),user_dict,
                                             number_p*10,10).await?;
@@ -74,7 +74,7 @@ pub async fn m_translate_main(req:HttpRequest,state: web::Data<StateDb>)->Result
         return Err(MyError::SiteError(str_error));
     }
     let langs=MysqlDB::getLanguages(state.mysql_db.clone()).await?;
-    let contents = file_openString("./easy_english_web/translate_main.html").await?;
+    let contents = file_openString("./easy_lang_web/translate_main.html").await?;
     let template=TranslateTemplate{
         current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
         current_lang_id:cookie.user_dictionaries[cookie.current_lang_index].language_id,
@@ -115,7 +115,7 @@ pub async fn m_translate_history_pagination(req:HttpRequest,state: web::Data<Sta
     }
     let langs=MysqlDB::getLanguages(state.mysql_db.clone()).await?;
     let trans=MysqlDB::getTranslated(state.mysql_db.clone(),num*10,10,cookie.user_id,lang_id.id).await?;
-    let contents = file_openString("./easy_english_web/translate_history.html").await?;
+    let contents = file_openString("./easy_lang_web/translate_history.html").await?;
     let template=TranslateHistoryTemplate{
         current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
         current_lang_history_id:lang_id.id,
@@ -143,7 +143,7 @@ pub async fn m_translate_history_item_show(req:HttpRequest,state: web::Data<Stat
     let results=join_all(tasks).await;
     let lang_from = results[0].clone()?.language_name.clone();
     let lang_into = results[1].clone()?.language_name.clone();
-    let contents = file_openString("./easy_english_web/translate_item.html").await?;
+    let contents = file_openString("./easy_lang_web/translate_item.html").await?;
     let template=TranslateHistoryItemTemplate{
         current_lang:cookie.user_dictionaries[cookie.current_lang_index].language_name.clone(),
         languages:cookie.user_dictionaries.clone(),

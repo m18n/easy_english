@@ -75,7 +75,7 @@ async fn main() -> std::io::Result<()> {
             .default_service(web::route().to(settings_controller::m_none))
             .wrap(NoCache)
 
-            .service(fs::Files::new("/public", "./easy_english_web").show_files_listing())
+            .service(fs::Files::new("/public", "./easy_lang_web").show_files_listing())
 
             .service(
                 web::scope("/view")

@@ -5,7 +5,7 @@ use crate::models::{MyError};
 // url controller: /view/***
 #[get("/login")]
 pub async fn m_login()->Result<HttpResponse, MyError>{
-    let contents = file_openString("./easy_english_web/login.html").await?;
+    let contents = file_openString("./easy_lang_web/login.html").await?;
     Ok(HttpResponse::Ok().content_type("text/html").body(contents))
 }
 

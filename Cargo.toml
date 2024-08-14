@@ -1,5 +1,5 @@
 [package]
-name = "easy_english"
+name = "easy_lang"
 version = "0.1.0"
 edition = "2021"
 
@@ -34,4 +34,3 @@ sqlx = { version = "0.6.1", features = ["mysql", "runtime-tokio-rustls"] }
 
 [build-dependencies]
 walkdir = "2.3"
-    

@@ -6,7 +6,7 @@ use walkdir::WalkDir;
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let target_dir = Path::new(&out_dir).ancestors().nth(3).unwrap();
-    let source_folder = Path::new("easy_english_web");
+    let source_folder = Path::new("easy_lang_web");
 
     let dockerfile_source = Path::new("Dockerfile");
     let dockerfile_dest =target_dir.join("Dockerfile");
@@ -19,7 +19,7 @@ fn main() {
     fs::copy(dockerignore_source, dockerignore_dest).expect("Failed to copy .docker");
 
 
-    let new_path = target_dir.join("easy_english_web");
+    let new_path = target_dir.join("easy_lang_web");
     if new_path.exists() {
         fs::remove_dir_all(&new_path).expect("Failed to remove old new_folder_name");
     }
